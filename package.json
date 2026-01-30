@@ -1,0 +1,20 @@
+{
+  "name": "rl-strings-llc",
+  "type": "module",
+  "version": "0.0.1",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro check && astro build",
+    "preview": "astro preview",
+    "astro": "astro",
+    "convex:dev": "bunx convex dev",
+    "convex:push": "bunx convex deploy",
+    "convex:generate": "bunx convex codegen"
+  },
+  "dependencies": {
+    "@tailwindcss/vite": "^4.1.18",
+    "astro": "^5.17.1",
+    "convex": "^1.31.7",
+    "tailwindcss": "^4.1.18"
+  }
+}
