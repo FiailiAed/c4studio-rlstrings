@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { mutation, query, internalMutation } from "./_generated/server";
 
 // TODD'S VIEW: Get all orders that need work
 export const getActiveOrders = query({
@@ -37,5 +37,37 @@ export const updateOrderStatus = mutation({
     
     // LFG: This is where you'd trigger a Resend email to the parent
     return { success: true };
+  },
+});
+
+// STRIPE WEBHOOK: Create order from successful payment
+export const createOrder = internalMutation({
+  args: {
+    customerName: v.string(),
+    email: v.string(),
+    phone: v.optional(v.string()),
+    stripeSessionId: v.string(),
+    orderType: v.union(v.literal("service"), v.literal("product")),
+    itemDescription: v.string(),
+  },
+  handler: async (ctx, args) => {
+    // Generate 4-digit pickup code (0000-9999)
+    const pickupCode = Math.floor(Math.random() * 10000)
+      .toString()
+      .padStart(4, '0');
+
+    // Create order with initial "paid" status
+    const orderId = await ctx.db.insert("orders", {
+      customerName: args.customerName,
+      email: args.email,
+      phone: args.phone,
+      stripeSessionId: args.stripeSessionId,
+      status: "paid",
+      orderType: args.orderType,
+      itemDescription: args.itemDescription,
+      pickupCode,
+    });
+
+    return orderId;
   },
 });

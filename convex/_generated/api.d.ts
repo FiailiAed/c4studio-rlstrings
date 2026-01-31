@@ -10,6 +10,7 @@
 
 import type * as inventory from "../inventory.js";
 import type * as orders from "../orders.js";
+import type * as stripe from "../stripe.js";
 
 import type {
   ApiFromModules,
@@ -20,6 +21,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   inventory: typeof inventory;
   orders: typeof orders;
+  stripe: typeof stripe;
 }>;
 
 /**
