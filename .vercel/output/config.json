@@ -1,0 +1,55 @@
+{
+	"version": 3,
+	"routes": [
+		{
+			"handle": "filesystem"
+		},
+		{
+			"src": "^/_astro/(.*)$",
+			"headers": {
+				"cache-control": "public, max-age=31536000, immutable"
+			},
+			"continue": true
+		},
+		{
+			"src": "^/_server-islands/([^/]+?)/?$",
+			"dest": "_render"
+		},
+		{
+			"src": "^/_image/?$",
+			"dest": "_render"
+		},
+		{
+			"src": "^/api/webhooks/stripe/?$",
+			"dest": "_render"
+		},
+		{
+			"src": "^/drop-off/([^/]+?)/?$",
+			"dest": "_render"
+		},
+		{
+			"src": "^/internal/admin/?$",
+			"dest": "_render"
+		},
+		{
+			"src": "^/internal/dashboard/?$",
+			"dest": "_render"
+		},
+		{
+			"src": "^/internal/inventory/?$",
+			"dest": "_render"
+		},
+		{
+			"src": "^/internal/testOrder/?$",
+			"dest": "_render"
+		},
+		{
+			"src": "^/order/([^/]+?)/?$",
+			"dest": "_render"
+		},
+		{
+			"src": "^/$",
+			"dest": "_render"
+		}
+	]
+}

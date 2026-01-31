@@ -13,6 +13,16 @@ export const getActiveOrders = query({
   },
 });
 
+// GET SINGLE ORDER: For customer receipt and drop-off pages
+export const getOrderById = query({
+  args: { orderId: v.id("orders") },
+  handler: async (ctx, args) => {
+    const order = await ctx.db.get(args.orderId);
+    if (!order) throw new Error("Order not found");
+    return order;
+  },
+});
+
 // THE HANDSHAKE: Update status when parent scans QR
 export const updateOrderStatus = mutation({
   args: { 

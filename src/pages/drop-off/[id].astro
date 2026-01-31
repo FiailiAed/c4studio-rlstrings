@@ -1,0 +1,21 @@
+---
+import DropOffApp from '../../components/DropOffApp';
+import '../../styles/global.css';
+
+const { id } = Astro.params;
+if (!id) {
+  return Astro.redirect('/');
+}
+---
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Confirm Drop-off - RL Strings</title>
+  </head>
+  <body>
+    <DropOffApp client:only="react" orderId={id} />
+  </body>
+</html>

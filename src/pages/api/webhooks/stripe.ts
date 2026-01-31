@@ -5,6 +5,8 @@ import Stripe from 'stripe';
 import { ConvexHttpClient } from 'convex/browser';
 import { api } from '../../../../convex/_generated/api';
 
+export const prerender = false;
+
 export const POST: APIRoute = async ({ request }) => {
   try {
     // 1. Get raw body for signature verification

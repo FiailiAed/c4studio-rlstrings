@@ -1,0 +1,21 @@
+---
+import OrderSuccessApp from '../../components/OrderSuccessApp';
+import '../../styles/global.css';
+
+const { id } = Astro.params;
+if (!id) {
+  return Astro.redirect('/');
+}
+---
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Order Confirmation - RL Strings</title>
+  </head>
+  <body>
+    <OrderSuccessApp client:only="react" orderId={id} />
+  </body>
+</html>
