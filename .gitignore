@@ -13,7 +13,7 @@ dist/
 .astro/
 
 # Convex generated files
-convex/_generated/
+# convex/_generated/  # Now committed to repo per Convex docs
 
 # IDE
 .vscode/
