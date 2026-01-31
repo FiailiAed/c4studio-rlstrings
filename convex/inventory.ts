@@ -1,5 +1,25 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { internalMutation } from "./_generated/server";
+
+// Add new item to inventory
+export const addItem = internalMutation({
+  args: {
+    name: v.string(),
+    priceId: v.string(),
+    stock: v.number(),
+    category: v.union(v.literal("head"), v.literal("shaft"), v.literal("mesh")),
+  },
+  handler: async (ctx, args) => {
+    const itemId = await ctx.db.insert("inventory", {
+      name: args.name,
+      priceId: args.priceId,
+      stock: args.stock,
+      category: args.category,
+    });
+    return itemId;
+  },
+});
 
 // Get all available equipment for the store
 export const getStorefront = query({

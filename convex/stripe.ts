@@ -1,21 +1,15 @@
+declare var process: { env: Record<string, string | undefined> };
+
 import { v } from "convex/values";
 import { action } from "./_generated/server";
+import { internal } from "./_generated/api"; // FIX 1: Import internal
 import Stripe from "stripe";
 
-const global_stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2026-01-28.clover", // Use the latest or the one Todd's account is pinned to
-});
-
-// CRACKED MOVE: Initialize inside a getter so it doesn't 
-// crash Convex during the build process if the key is missing.
+// FIX 2 & 3: Safer initialization
 const getStripe = () => {
-  const apiKey = process.env.STRIPE_SECRET_KEY;
-  if (!apiKey) {
-    throw new Error("STRIPE_SECRET_KEY is not set in Convex Environment Variables");
-  }
-  return new Stripe(apiKey, {
-    apiVersion: "2026-01-28.clover",
-  });
+  const key = process.env.STRIPE_SECRET_KEY;
+  if (!key) throw new Error("STRIPE_SECRET_KEY is missing in Convex Dashboard");
+  return new Stripe(key); // Let Stripe use the account default version
 };
 
 export const createProductAndSync = action({
@@ -25,19 +19,30 @@ export const createProductAndSync = action({
     category: v.union(v.literal("head"), v.literal("shaft"), v.literal("mesh")) 
   },
   handler: async (ctx, args) => {
-    const stripe = getStripe(); // Only runs when the action is called
-    
+    const stripe = getStripe();
+
+    // 1. Create Product in Stripe
     const product = await stripe.products.create({
       name: args.name,
+      metadata: { category: args.category },
     });
 
+    // 2. Create Price in Stripe
     const price = await stripe.prices.create({
       product: product.id,
       unit_amount: args.priceInCents,
       currency: "usd",
     });
 
-    // ... rest of your code
-    return { success: true };
+    // 3. Write to Convex DB using the internal object
+    // LFG - No more red squiggly lines.
+    await ctx.runMutation(internal.inventory.addItem, {
+      name: args.name,
+      priceId: price.id,
+      stock: 0, 
+      category: args.category,
+    });
+
+    return { success: true, stripeId: product.id };
   },
 });
