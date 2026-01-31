@@ -13,10 +13,10 @@ const getStripe = () => {
 };
 
 export const createProductAndSync = action({
-  args: { 
-    name: v.string(), 
-    priceInCents: v.number(), 
-    category: v.union(v.literal("head"), v.literal("shaft"), v.literal("mesh")) 
+  args: {
+    name: v.string(),
+    priceInCents: v.number(),
+    category: v.union(v.literal("head"), v.literal("shaft"), v.literal("mesh"))
   },
   handler: async (ctx, args) => {
     const stripe = getStripe();
@@ -39,10 +39,35 @@ export const createProductAndSync = action({
     await ctx.runMutation(internal.inventory.addItem, {
       name: args.name,
       priceId: price.id,
-      stock: 0, 
+      stock: 0,
       category: args.category,
     });
 
     return { success: true, stripeId: product.id };
+  },
+});
+
+// WEBHOOK HANDLER: Process completed checkout sessions
+export const handleCheckoutCompleted = action({
+  args: {
+    customerName: v.string(),
+    email: v.string(),
+    phone: v.optional(v.string()),
+    stripeSessionId: v.string(),
+    orderType: v.union(v.literal("service"), v.literal("product")),
+    itemDescription: v.string(),
+  },
+  handler: async (ctx, args): Promise<{ success: boolean; orderId: string }> => {
+    // Create order via internal mutation
+    const orderId: string = await ctx.runMutation(internal.orders.createOrder, {
+      customerName: args.customerName,
+      email: args.email,
+      phone: args.phone,
+      stripeSessionId: args.stripeSessionId,
+      orderType: args.orderType,
+      itemDescription: args.itemDescription,
+    });
+
+    return { success: true, orderId };
   },
 });
