@@ -109,3 +109,18 @@ export const getOrderById = query({
     };
   },
 });
+
+// ADMIN: Get most recent order for debug panel
+export const getMostRecentOrder = query({
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    requireAdmin(identity);
+
+    const orders = await ctx.db
+      .query("orders")
+      .order("desc")
+      .take(1);
+
+    return orders[0] || null;
+  },
+});

@@ -1,8 +1,9 @@
 declare var process: { env: Record<string, string | undefined> };
 
 import { v } from "convex/values";
-import { action } from "./_generated/server";
+import { action, query } from "./_generated/server";
 import { internal } from "./_generated/api"; // FIX 1: Import internal
+import { requireAdmin } from "./auth";
 import Stripe from "stripe";
 
 // FIX 2 & 3: Safer initialization
@@ -69,5 +70,94 @@ export const handleCheckoutCompleted = action({
     });
 
     return { success: true, orderId };
+  },
+});
+
+// DEBUG: Get inventory comparison data
+export const getInventoryComparison = query({
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    requireAdmin(identity);
+
+    const inventory = await ctx.db.query("inventory").collect();
+    return inventory.map(item => ({
+      convexId: item._id,
+      name: item.name,
+      priceId: item.priceId,
+      stock: item.stock,
+      category: item.category,
+    }));
+  },
+});
+
+// DEBUG: Fetch all Stripe products/prices
+export const fetchStripeProducts = action({
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    requireAdmin(identity);
+
+    const stripe = getStripe();
+
+    const prices = await stripe.prices.list({
+      limit: 100,
+      expand: ['data.product'],
+    });
+
+    return prices.data.map(price => ({
+      priceId: price.id,
+      productName: (price.product as any).name,
+      amount: price.unit_amount,
+      currency: price.currency,
+      active: price.active,
+    }));
+  },
+});
+
+// DEBUG: Fetch webhook metadata for a session
+export const fetchSessionMetadata = action({
+  args: { sessionId: v.string() },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    requireAdmin(identity);
+
+    const stripe = getStripe();
+
+    try {
+      const session = await stripe.checkout.sessions.retrieve(args.sessionId, {
+        expand: ['line_items', 'customer', 'payment_intent'],
+      });
+
+      return {
+        success: true,
+        session: JSON.parse(JSON.stringify(session)),
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        error: err.message,
+        sessionId: args.sessionId,
+      };
+    }
+  },
+});
+
+// DEBUG: Ping Stripe to verify API key
+export const debugPingStripe = action({
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    requireAdmin(identity);
+
+    const stripe = getStripe();
+
+    try {
+      const account = await stripe.accounts.retrieve();
+      return {
+        success: true,
+        accountName: account.business_profile?.name || account.email || account.id,
+        accountId: account.id,
+      };
+    } catch (err: any) {
+      throw new Error(`Stripe API error: ${err.message}`);
+    }
   },
 });
