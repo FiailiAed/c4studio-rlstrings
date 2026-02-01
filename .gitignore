@@ -2,6 +2,7 @@
 node_modules/
 
 # Build output
+.vercel
 dist/
 
 # Environment variables - NEVER COMMIT THESE
