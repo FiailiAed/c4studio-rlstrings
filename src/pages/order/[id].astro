@@ -103,7 +103,7 @@ const currentStep = progressSteps.filter(s => s.active).length;
                   </tr>
                 </thead>
                 <tbody>
-                  {order.lineItems.map((item) => (
+                  {order.lineItems.map((item: any) => (
                     <tr class="border-b border-white/5">
                       <td class="py-2">
                         {item.productName}
@@ -117,7 +117,7 @@ const currentStep = progressSteps.filter(s => s.active).length;
                   <tr>
                     <td colspan="3" class="pt-3 text-right font-bold">Total:</td>
                     <td class="pt-3 text-right font-bold text-lg text-purple-400">
-                      ${(order.lineItems.reduce((sum, item) => sum + item.totalAmount, 0) / 100).toFixed(2)}
+                      ${(order.lineItems.reduce((sum: number, item: any) => sum + item.totalAmount, 0) / 100).toFixed(2)}
                     </td>
                   </tr>
                 </tbody>

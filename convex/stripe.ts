@@ -115,11 +115,11 @@ export const createAtomicCheckout = action({
     successUrl: v.string(),
     cancelUrl: v.string(),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<{ sessionId: string; url: string | null; buildType: string }> => {
     const stripe = getStripe();
 
     // 1. Validate stock levels
-    const stockErrors = [];
+    const stockErrors: string[] = [];
     for (const item of args.items) {
       const inventoryItem = await ctx.runQuery(internal.inventory.getByPriceId, {
         priceId: item.priceId
@@ -140,8 +140,13 @@ export const createAtomicCheckout = action({
     }
 
     // 2. Fetch product details for metadata
-    const lineItemsForMetadata = await Promise.all(
-      args.items.map(async (item) => {
+    const lineItemsForMetadata: Array<{
+      priceId: string;
+      name: string;
+      quantity: number;
+      category: string;
+    }> = await Promise.all(
+      args.items.map(async (item): Promise<{ priceId: string; name: string; quantity: number; category: string }> => {
         const inventoryItem = await ctx.runQuery(internal.inventory.getByPriceId, {
           priceId: item.priceId
         });
@@ -155,9 +160,9 @@ export const createAtomicCheckout = action({
     );
 
     // 3. Determine build type
-    const categories = new Set(lineItemsForMetadata.map(i => i.category));
-    const hasService = categories.has("service");
-    const hasProducts = categories.size > (hasService ? 1 : 0);
+    const categories: Set<string> = new Set(lineItemsForMetadata.map((i: { category: string }) => i.category));
+    const hasService: boolean = categories.has("service");
+    const hasProducts: boolean = categories.size > (hasService ? 1 : 0);
 
     let buildType: string;
     if (hasService && !hasProducts) {
@@ -169,7 +174,7 @@ export const createAtomicCheckout = action({
     }
 
     // 4. Create Stripe Checkout Session
-    const session = await stripe.checkout.sessions.create({
+    const session: Stripe.Checkout.Session = await stripe.checkout.sessions.create({
       mode: "payment",
       line_items: args.items.map(item => ({
         price: item.priceId,
