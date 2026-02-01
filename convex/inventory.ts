@@ -35,6 +35,26 @@ export const getStorefront = query({
   },
 });
 
+// Get storefront inventory (in-stock items only, grouped by category)
+export const getStorefrontFiltered = query({
+  handler: async (ctx) => {
+    const items = await ctx.db
+      .query("inventory")
+      .filter(q => q.gt(q.field("stock"), 0))
+      .collect();
+
+    // Group by category for easy rendering
+    const grouped = {
+      head: items.filter(i => i.category === "head"),
+      mesh: items.filter(i => i.category === "mesh"),
+      strings: items.filter(i => i.category === "strings"),
+      service: items.filter(i => i.category === "service"),
+    };
+
+    return { items, grouped };
+  }
+});
+
 // Update stock levels after a purchase or manual restock
 export const updateStock = mutation({
   args: {

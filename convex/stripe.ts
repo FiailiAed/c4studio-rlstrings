@@ -284,17 +284,15 @@ export const getInventoryComparison = query({
   },
 });
 
-// DEBUG: Fetch all Stripe products/prices
+// Fetch all Stripe products/prices (public for storefront)
 export const fetchStripeProducts = action({
-  handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    requireAdmin(identity);
-
+  handler: async () => {
     const stripe = getStripe();
 
     const prices = await stripe.prices.list({
       limit: 100,
       expand: ['data.product'],
+      active: true, // Only fetch active prices
     });
 
     return prices.data.map(price => ({

@@ -1,0 +1,391 @@
+---
+import MainLayout from '../layouts/MainLayout.astro';
+import { getConvexClient } from '../lib/convex';
+import { api } from '../../convex/_generated/api';
+
+const convex = getConvexClient();
+const { items } = await convex.query(api.inventory.getStorefrontFiltered, {});
+---
+
+<MainLayout
+  title="Shop - RL Strings"
+  description="Build your perfect lacrosse stick with our selection of heads, mesh, strings, and professional stringing services"
+>
+  <!-- Hero Section -->
+  <div class="text-center mb-12">
+    <h1 class="text-5xl font-bold text-black mb-4">
+      Build Your Perfect Stick
+    </h1>
+    <p class="text-xl text-gray-600">
+      Select parts below to create your custom setup
+    </p>
+  </div>
+
+  <!-- Category Tabs -->
+  <div class="flex gap-2 mb-8 overflow-x-auto pb-2 hide-scrollbar">
+    <button class="category-tab active" data-category="all">All</button>
+    <button class="category-tab" data-category="head">Heads</button>
+    <button class="category-tab" data-category="mesh">Mesh</button>
+    <button class="category-tab" data-category="strings">Strings</button>
+    <button class="category-tab" data-category="service">Service</button>
+  </div>
+
+  <!-- Product Grid -->
+  <div id="product-grid" class="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-24">
+    {items.map((item) => (
+      <div
+        class="product-card bg-white rounded-xl p-6 border-2 border-gray-200 hover:border-red-600 hover:shadow-lg transition-all duration-300"
+        data-category={item.category}
+        data-price-id={item.priceId}
+      >
+        <!-- Product Header -->
+        <div class="flex items-start justify-between mb-4">
+          <h3 class="text-xl font-semibold text-black">{item.name}</h3>
+          <span class="text-2xl">🏑</span>
+        </div>
+
+        <!-- Price & Stock (Price will be injected by JS) -->
+        <div class="flex items-center justify-between mb-4">
+          <div class="product-price text-3xl font-bold text-red-600">
+            <div class="animate-pulse bg-gray-200 h-8 w-20 rounded"></div>
+          </div>
+          <div class="text-sm">
+            {item.stock < 3 ? (
+              <span class="text-orange-600 font-semibold">⚠ Only {item.stock} left!</span>
+            ) : (
+              <span class="text-gray-600">Stock: {item.stock}</span>
+            )}
+          </div>
+        </div>
+
+        <!-- Add to Cart Button -->
+        <button
+          class="add-to-cart-btn w-full min-h-[44px] bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+          data-price-id={item.priceId}
+          data-name={item.name}
+          data-category={item.category}
+          data-stock={item.stock}
+          disabled
+        >
+          + Add to Build
+        </button>
+      </div>
+    ))}
+  </div>
+
+  <!-- Sticky Cart Bar -->
+  <div id="sticky-cart-bar" class="fixed bottom-0 left-0 right-0 bg-black border-t-4 border-red-600 p-4 shadow-2xl z-40">
+    <div class="container mx-auto flex items-center justify-between">
+      <!-- Cart Summary -->
+      <div class="flex items-center gap-4">
+        <span class="text-2xl">🛒</span>
+        <div>
+          <div class="text-white font-semibold">
+            <span id="cart-item-count">0</span> items
+          </div>
+          <div class="text-gray-300 text-sm" id="cart-total">
+            $0.00
+          </div>
+        </div>
+      </div>
+
+      <!-- Checkout Button -->
+      <button
+        id="checkout-btn"
+        class="min-h-[44px] bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-8 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        disabled
+      >
+        Checkout
+      </button>
+    </div>
+  </div>
+</MainLayout>
+
+<style>
+  .category-tab {
+    padding: 0.75rem 1.5rem;
+    min-height: 44px;
+    border-radius: 0.5rem;
+    font-weight: 600;
+    transition: all 0.3s;
+    white-space: nowrap;
+    background: white;
+    border: 2px solid #e5e7eb;
+    color: #4b5563;
+  }
+
+  .category-tab.active {
+    background: #dc2626;
+    border-color: #dc2626;
+    color: white;
+  }
+
+  .category-tab:hover:not(.active) {
+    border-color: #dc2626;
+    color: #dc2626;
+  }
+
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-fade-in {
+    animation: fade-in 0.3s ease-out;
+  }
+</style>
+
+<script>
+  import { ConvexClient } from "convex/browser";
+  import { api } from "../../convex/_generated/api";
+
+  const convexUrl = import.meta.env.PUBLIC_CONVEX_URL;
+  const client = new ConvexClient(convexUrl);
+
+  // ========== TYPES ==========
+  interface CartItem {
+    priceId: string;
+    quantity: number;
+    name: string;
+    price: number;
+    category: string;
+    maxStock: number;
+  }
+
+  interface CartState {
+    items: CartItem[];
+  }
+
+  interface PriceData {
+    amount: number;
+    currency: string;
+  }
+
+  // ========== STATE MANAGEMENT ==========
+  let cartState: CartState = JSON.parse(localStorage.getItem('rlStringsCart') || '{"items":[]}');
+  let priceMap: Record<string, PriceData> = {};
+
+  // ========== FETCH STRIPE PRICES ==========
+  async function fetchPrices() {
+    try {
+      const stripeProducts = await client.action(api.stripe.fetchStripeProducts, {});
+
+      // Build price map: { priceId: { amount, currency } }
+      stripeProducts.forEach(product => {
+        priceMap[product.priceId] = {
+          amount: product.amount || 0,
+          currency: product.currency
+        };
+      });
+
+      // Inject prices into product cards
+      document.querySelectorAll<HTMLElement>('.product-card').forEach(card => {
+        const priceId = card.dataset.priceId;
+        if (!priceId) return;
+
+        const priceData = priceMap[priceId];
+
+        if (priceData) {
+          const priceEl = card.querySelector<HTMLElement>('.product-price');
+          if (priceEl) {
+            priceEl.innerHTML = `$${(priceData.amount / 100).toFixed(2)}`;
+          }
+
+          // Enable "Add to Cart" button
+          const btn = card.querySelector<HTMLButtonElement>('.add-to-cart-btn');
+          if (btn) {
+            btn.disabled = false;
+            btn.dataset.price = priceData.amount.toString();
+          }
+        }
+      });
+    } catch (err) {
+      console.error('Failed to fetch prices:', err);
+      showToast('Failed to load prices. Please refresh.', 'error');
+    }
+  }
+
+  // ========== CART OPERATIONS ==========
+  function addToCart(product: CartItem) {
+    const existing = cartState.items.find(i => i.priceId === product.priceId);
+
+    if (existing) {
+      if (existing.quantity < product.maxStock) {
+        existing.quantity++;
+      } else {
+        showToast(`Maximum stock reached (${product.maxStock})`, 'warning');
+        return;
+      }
+    } else {
+      cartState.items.push({
+        priceId: product.priceId,
+        quantity: 1,
+        name: product.name,
+        price: product.price,
+        category: product.category,
+        maxStock: product.maxStock
+      });
+    }
+
+    saveCart();
+    updateCartUI();
+    showAddedFeedback(product.priceId);
+  }
+
+  function saveCart() {
+    localStorage.setItem('rlStringsCart', JSON.stringify(cartState));
+  }
+
+  function updateCartUI() {
+    const count = cartState.items.reduce((sum: number, item: CartItem) => sum + item.quantity, 0);
+    const total = cartState.items.reduce((sum: number, item: CartItem) => sum + (item.price * item.quantity), 0);
+
+    const cartCountEl = document.getElementById('cart-item-count');
+    const cartTotalEl = document.getElementById('cart-total');
+    const checkoutBtn = document.getElementById('checkout-btn') as HTMLButtonElement | null;
+
+    if (cartCountEl) cartCountEl.textContent = count.toString();
+    if (cartTotalEl) cartTotalEl.textContent = `$${(total / 100).toFixed(2)}`;
+    if (checkoutBtn) checkoutBtn.disabled = count === 0;
+  }
+
+  function showAddedFeedback(priceId: string) {
+    const btn = document.querySelector<HTMLButtonElement>(`.add-to-cart-btn[data-price-id="${priceId}"]`);
+    if (!btn) return;
+
+    const originalText = btn.textContent;
+    const originalClass = btn.className;
+
+    btn.textContent = '✓ Added!';
+    btn.className = btn.className.replace('bg-red-600 hover:bg-red-700', 'bg-green-600');
+
+    setTimeout(() => {
+      btn.textContent = originalText;
+      btn.className = originalClass;
+    }, 1500);
+  }
+
+  // ========== CATEGORY FILTERING ==========
+  function filterByCategory(category: string) {
+    const cards = document.querySelectorAll<HTMLElement>('.product-card');
+
+    cards.forEach(card => {
+      const cardCategory = card.dataset.category;
+      card.style.display = (category === 'all' || cardCategory === category) ? 'block' : 'none';
+    });
+
+    // Update active tab
+    document.querySelectorAll<HTMLElement>('.category-tab').forEach(tab => {
+      tab.classList.toggle('active', tab.dataset.category === category);
+    });
+  }
+
+  // ========== CHECKOUT FLOW ==========
+  async function handleCheckout() {
+    if (cartState.items.length === 0) return;
+
+    const checkoutBtn = document.getElementById('checkout-btn') as HTMLButtonElement | null;
+    if (!checkoutBtn) return;
+
+    checkoutBtn.disabled = true;
+    checkoutBtn.textContent = 'Processing...';
+
+    try {
+      const items = cartState.items.map((item: CartItem) => ({
+        priceId: item.priceId,
+        quantity: item.quantity
+      }));
+
+      const result = await client.action(api.stripe.createAtomicCheckout, {
+        items,
+        successUrl: `${window.location.origin}/order-success?session_id={CHECKOUT_SESSION_ID}`,
+        cancelUrl: window.location.href
+      });
+
+      if (result.url) {
+        // Clear cart and redirect
+        localStorage.removeItem('rlStringsCart');
+        window.location.href = result.url;
+      }
+    } catch (err) {
+      console.error('Checkout failed:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      showToast('Checkout failed: ' + errorMessage, 'error');
+      checkoutBtn.disabled = false;
+      checkoutBtn.textContent = 'Checkout';
+    }
+  }
+
+  // ========== TOAST NOTIFICATIONS ==========
+  function showToast(message: string, type: 'info' | 'error' | 'warning' = 'info') {
+    const bgColor = type === 'error' ? 'bg-red-600' : type === 'warning' ? 'bg-orange-600' : 'bg-green-600';
+
+    const toast = document.createElement('div');
+    toast.className = `fixed top-4 right-4 ${bgColor} text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-fade-in`;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+
+    setTimeout(() => toast.remove(), 3000);
+  }
+
+  // ========== EVENT LISTENERS ==========
+  document.addEventListener('DOMContentLoaded', () => {
+    // Fetch prices on load
+    fetchPrices();
+
+    // Update cart UI from localStorage
+    updateCartUI();
+
+    // Category tabs
+    document.querySelectorAll<HTMLButtonElement>('.category-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        const category = tab.dataset.category;
+        if (category) filterByCategory(category);
+      });
+    });
+
+    // Add to cart buttons
+    document.querySelectorAll<HTMLButtonElement>('.add-to-cart-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const priceId = btn.dataset.priceId;
+        const name = btn.dataset.name;
+        const price = btn.dataset.price;
+        const category = btn.dataset.category;
+        const stock = btn.dataset.stock;
+
+        if (!priceId || !name || !price || !category || !stock) return;
+
+        const product: CartItem = {
+          priceId,
+          name,
+          price: parseInt(price),
+          category,
+          maxStock: parseInt(stock),
+          quantity: 1
+        };
+        addToCart(product);
+      });
+    });
+
+    // Checkout button
+    const checkoutBtn = document.getElementById('checkout-btn');
+    if (checkoutBtn) {
+      checkoutBtn.addEventListener('click', handleCheckout);
+    }
+  });
+</script>
