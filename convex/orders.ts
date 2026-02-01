@@ -140,3 +140,33 @@ export const getMostRecentOrder = query({
     return orders[0] || null;
   },
 });
+
+// PUBLIC: Get order by Stripe session ID for order success page
+export const getOrderBySessionId = query({
+  args: { stripeSessionId: v.string() },
+  handler: async (ctx, args) => {
+    const order = await ctx.db
+      .query("orders")
+      .filter((q) => q.eq(q.field("stripeSessionId"), args.stripeSessionId))
+      .first();
+
+    if (!order) {
+      return null;
+    }
+
+    // Return order WITHOUT admin-only PII (phone excluded)
+    return {
+      _id: order._id,
+      customerName: order.customerName,
+      email: order.email,
+      status: order.status,
+      orderType: order.orderType,
+      itemDescription: order.itemDescription,
+      lineItems: order.lineItems,
+      pickupCode: order.pickupCode,
+      droppedOffAt: order.droppedOffAt,
+      completedAt: order.completedAt,
+      _creationTime: order._creationTime,
+    };
+  },
+});

@@ -1,0 +1,210 @@
+---
+import MainLayout from '../layouts/MainLayout.astro';
+import { getConvexClient } from '../lib/convex';
+import { api } from '../../convex/_generated/api';
+
+// Extract session_id from URL
+const sessionId = Astro.url.searchParams.get('session_id');
+
+if (!sessionId) {
+  return Astro.redirect('/shop?error=no_session');
+}
+
+// Query Convex for order
+const convex = getConvexClient();
+const order = await convex.query(api.orders.getOrderBySessionId, {
+  stripeSessionId: sessionId
+});
+
+// If order doesn't exist yet (webhook processing), show loading state
+const isProcessing = !order;
+
+// Calculate total if order exists
+const total = order?.lineItems?.reduce((sum: number, item: any) => sum + item.totalAmount, 0) || 0;
+---
+
+<MainLayout title="Order Confirmed | RL Strings">
+  <div class="min-h-screen flex items-center justify-center p-4 relative">
+    <!-- Background gradients -->
+    <div class="fixed top-0 left-0 w-full h-full overflow-hidden -z-10">
+      <div class="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-red-900/20 blur-[150px] rounded-full opacity-60"></div>
+      <div class="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-red-800/10 blur-[150px] rounded-full opacity-40"></div>
+    </div>
+
+    {isProcessing ? (
+      <!-- Processing State -->
+      <div class="max-w-2xl w-full glass rounded-3xl p-8 text-center" role="status" aria-live="polite" aria-atomic="true">
+        <div class="animate-spin w-16 h-16 border-4 border-red-600 border-t-transparent rounded-full mx-auto mb-6"></div>
+        <h1 class="text-3xl font-bold text-white mb-2">Processing Your Order...</h1>
+        <p class="text-neutral-400 mb-6">We're finalizing your order. This should only take a moment.</p>
+        <p class="text-sm text-neutral-500">Page will refresh automatically</p>
+      </div>
+    ) : (
+      <!-- Success State -->
+      <main class="max-w-2xl w-full glass rounded-3xl overflow-hidden shadow-2xl shadow-red-900/10">
+        <!-- Hero Section -->
+        <div class="p-8 text-center border-b border-neutral-800">
+          <div class="inline-flex items-center justify-center w-24 h-24 bg-red-600/10 rounded-full mb-6 ring-1 ring-red-600/30">
+            <i data-lucide="check" class="w-12 h-12 text-red-500"></i>
+          </div>
+          <h1 class="text-4xl font-extrabold text-white mb-2 tracking-tight uppercase">Order Locked In.</h1>
+          <p class="text-neutral-400 text-lg">Prepare for elite performance.</p>
+        </div>
+
+        <!-- Drop-off Instructions -->
+        <div class="p-8">
+          <div class="bg-gradient-to-br from-red-950/80 via-black to-black rounded-2xl p-6 border border-red-900/50 mb-8 relative overflow-hidden">
+            <div class="shimmer absolute inset-0 pointer-events-none"></div>
+            <div class="flex items-start gap-4 relative z-10">
+              <div class="bg-neutral-900/80 p-3 rounded-xl border border-neutral-800">
+                <i data-lucide="map-pin" class="w-6 h-6 text-red-500"></i>
+              </div>
+              <div>
+                <h2 class="text-xl font-bold text-white mb-1 uppercase">Next Step: Drop Off</h2>
+                <p class="text-neutral-300 text-sm leading-relaxed mb-5">
+                  Bring your head to <strong class="text-white border-b-2 border-red-600">Stellar Athletics</strong>. Scan the QR code at the desk to initiate the build.
+                </p>
+                <div class="flex flex-wrap gap-3">
+                  <span class="px-4 py-1.5 bg-red-950/60 rounded-lg text-xs font-mono text-red-200 border border-red-800/60 flex items-center gap-2">
+                    <i data-lucide="hash" class="w-4 h-4 text-red-500"></i>
+                    <span class="opacity-70">ORDER:</span> RL-{order.pickupCode}
+                  </span>
+                  <span class="px-4 py-1.5 bg-neutral-900/80 rounded-lg text-xs font-mono text-white border border-neutral-700 flex items-center gap-2">
+                    <i data-lucide="ticket" class="w-4 h-4 text-neutral-400"></i>
+                    <span class="opacity-70">CODE:</span> {order.pickupCode}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Build Manifest -->
+          <div class="space-y-4">
+            <h3 class="text-xs font-bold uppercase tracking-widest text-neutral-500 mb-6">Build Manifest</h3>
+            <div class="space-y-3 px-2">
+              {order.lineItems && order.lineItems.length > 0 ? (
+                <>
+                  {order.lineItems.map((item: any) => (
+                    <div class="flex justify-between items-center text-sm group">
+                      <span class="text-neutral-400 group-hover:text-white transition-colors">{item.productName}</span>
+                      <span class="text-white font-bold font-mono">${(item.totalAmount / 100).toFixed(2)}</span>
+                    </div>
+                  ))}
+
+                  <!-- Total -->
+                  <div class="pt-6 mt-6 border-t border-neutral-800 flex justify-between items-end">
+                    <span class="text-white font-bold uppercase tracking-wider text-sm">Total Paid</span>
+                    <span class="text-3xl font-black text-white leading-none flex items-start gap-1">
+                      <span class="text-lg text-red-500 mt-1">$</span>{(total / 100).toFixed(2)}
+                    </span>
+                  </div>
+                </>
+              ) : (
+                <p class="text-neutral-500 italic text-center py-4">No line items available</p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="p-6 bg-neutral-950/80 border-t border-neutral-800 flex flex-col sm:flex-row gap-4">
+          <a
+            href={`/order/${order.pickupCode}`}
+            class="flex-1 text-center py-4 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 border border-red-500 shadow-lg shadow-red-900/20 transition-all active:scale-[0.98] flex items-center justify-center gap-2 uppercase tracking-wide text-sm"
+          >
+            <i data-lucide="radar" class="w-5 h-5"></i>
+            Track Build Status
+          </a>
+          <button
+            onclick="window.print()"
+            aria-label="Print receipt"
+            class="px-6 py-4 bg-black text-neutral-300 font-bold rounded-xl border border-neutral-800 hover:bg-neutral-900 hover:text-white transition-colors flex items-center justify-center gap-2 uppercase tracking-wide text-sm"
+          >
+            <i data-lucide="printer" class="w-5 h-5"></i>
+            Receipt
+          </button>
+        </div>
+      </main>
+    )}
+  </div>
+
+  <style>
+    .glass {
+      background: rgba(10, 10, 10, 0.8);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .shimmer {
+      background: linear-gradient(90deg, transparent, rgba(220, 38, 38, 0.1), transparent);
+      background-size: 200% 100%;
+      animation: shimmer 3s infinite;
+    }
+
+    @keyframes shimmer {
+      0% { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+
+    @media print {
+      .glass {
+        background: white;
+        border: 1px solid #e5e5e5;
+      }
+
+      body {
+        background: white;
+      }
+
+      [data-lucide] {
+        display: none;
+      }
+
+      button {
+        display: none;
+      }
+    }
+  </style>
+
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script is:inline>
+    // @ts-ignore - lucide is loaded from CDN
+    if (typeof lucide !== 'undefined') {
+      lucide.createIcons();
+    }
+
+    // Clear retry counter on successful order load
+    const isProcessing = document.querySelector('[role="status"]');
+    if (!isProcessing) {
+      sessionStorage.removeItem('orderRetryCount');
+    }
+  </script>
+
+  {isProcessing && (
+    <script>
+      const maxRetries = 5;  // 10 seconds (5 retries × 2 seconds)
+      let retryCount = parseInt(sessionStorage.getItem('orderRetryCount') || '0');
+
+      if (retryCount < maxRetries) {
+        sessionStorage.setItem('orderRetryCount', (retryCount + 1).toString());
+        setTimeout(() => {
+          window.location.reload();
+        }, 2000);
+      } else {
+        // Show error after max retries
+        sessionStorage.removeItem('orderRetryCount');
+        document.body.innerHTML = `
+          <div class="min-h-screen flex items-center justify-center p-4">
+            <div class="max-w-2xl mx-auto p-8 text-center glass rounded-3xl">
+              <h1 class="text-2xl font-bold text-red-500 mb-4">Order Processing Error</h1>
+              <p class="text-neutral-400 mb-6">We couldn't find your order. Please contact support at 1822lax@gmail.com</p>
+              <a href="/shop" class="inline-block px-6 py-3 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 transition-colors">
+                Return to Shop
+              </a>
+            </div>
+          </div>
+        `;
+      }
+    </script>
+  )}
+</MainLayout>
