@@ -10,7 +10,14 @@ export default defineConfig({
   adapter: vercel({
     webAnalytics: { enabled: true }, // Enable Vercel Web Analytics
   }),
-  integrations: [clerk()],
+  integrations: [
+    clerk({
+      afterSignInUrl: '/',
+      afterSignUpUrl: '/',
+      signInUrl: '/sign-in',
+      signUpUrl: '/sign-up',
+    })
+  ],
   vite: {
     plugins: [tailwindcss()],
     optimizeDeps: {
