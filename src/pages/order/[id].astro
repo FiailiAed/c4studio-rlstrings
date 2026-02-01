@@ -89,6 +89,43 @@ const currentStep = progressSteps.filter(s => s.active).length;
           <p class="text-xl">{order.itemDescription}</p>
         </div>
 
+        {order.lineItems && order.lineItems.length > 0 && (
+          <div class="md:col-span-2">
+            <p class="text-gray-400 text-sm mb-3">Order Details</p>
+            <div class="bg-black/30 rounded-lg p-4">
+              <table class="w-full text-sm">
+                <thead>
+                  <tr class="border-b border-white/10">
+                    <th class="text-left text-gray-400 pb-2">Item</th>
+                    <th class="text-right text-gray-400 pb-2">Qty</th>
+                    <th class="text-right text-gray-400 pb-2">Price</th>
+                    <th class="text-right text-gray-400 pb-2">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {order.lineItems.map((item) => (
+                    <tr class="border-b border-white/5">
+                      <td class="py-2">
+                        {item.productName}
+                        <span class="text-xs text-gray-500 ml-2 capitalize">({item.category})</span>
+                      </td>
+                      <td class="text-right">{item.quantity}</td>
+                      <td class="text-right">${(item.unitAmount / 100).toFixed(2)}</td>
+                      <td class="text-right font-semibold">${(item.totalAmount / 100).toFixed(2)}</td>
+                    </tr>
+                  ))}
+                  <tr>
+                    <td colspan="3" class="pt-3 text-right font-bold">Total:</td>
+                    <td class="pt-3 text-right font-bold text-lg text-purple-400">
+                      ${(order.lineItems.reduce((sum, item) => sum + item.totalAmount, 0) / 100).toFixed(2)}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
         {order.droppedOffAt && (
           <div>
             <p class="text-gray-400 text-sm mb-1">Dropped Off</p>

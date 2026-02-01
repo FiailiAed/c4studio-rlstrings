@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { mutation, query, internalQuery } from "./_generated/server";
 import { internalMutation } from "./_generated/server";
 import { requireAdmin } from "./auth";
 
@@ -9,7 +9,13 @@ export const addItem = internalMutation({
     name: v.string(),
     priceId: v.string(),
     stock: v.number(),
-    category: v.union(v.literal("head"), v.literal("shaft"), v.literal("mesh")),
+    category: v.union(
+      v.literal("head"),
+      v.literal("shaft"),
+      v.literal("mesh"),
+      v.literal("strings"),
+      v.literal("service")
+    ),
   },
   handler: async (ctx, args) => {
     const itemId = await ctx.db.insert("inventory", {
@@ -56,7 +62,13 @@ export const seedInventory = mutation({
       name: v.string(),
       priceId: v.string(),
       stock: v.number(),
-      category: v.union(v.literal("head"), v.literal("shaft"), v.literal("mesh"))
+      category: v.union(
+        v.literal("head"),
+        v.literal("shaft"),
+        v.literal("mesh"),
+        v.literal("strings"),
+        v.literal("service")
+      )
     }))
   },
   handler: async (ctx, args) => {
@@ -67,4 +79,32 @@ export const seedInventory = mutation({
       await ctx.db.insert("inventory", item);
     }
   },
+});
+
+// Get inventory item by Stripe price ID (internal for actions)
+export const getByPriceId = internalQuery({
+  args: { priceId: v.string() },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("inventory")
+      .filter(q => q.eq(q.field("priceId"), args.priceId))
+      .first();
+  }
+});
+
+// Decrement stock after successful payment
+export const decrementStock = internalMutation({
+  args: {
+    inventoryId: v.id("inventory"),
+    quantity: v.number()
+  },
+  handler: async (ctx, args) => {
+    const item = await ctx.db.get(args.inventoryId);
+    if (!item) throw new Error("Inventory item not found");
+
+    const newStock = Math.max(0, item.stock - args.quantity);
+    await ctx.db.patch(args.inventoryId, { stock: newStock });
+
+    return { newStock };
+  }
 });

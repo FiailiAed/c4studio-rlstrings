@@ -52,8 +52,12 @@ export const POST: APIRoute = async ({ request }) => {
       );
     }
 
-    // 5. Extract session data
-    const session = event.data.object as Stripe.Checkout.Session;
+    // 5. Retrieve session with expanded line items
+    const sessionId = (event.data.object as Stripe.Checkout.Session).id;
+
+    const session = await stripe.checkout.sessions.retrieve(sessionId, {
+      expand: ['line_items', 'line_items.data.price']
+    });
 
     if (!session.customer_details?.email) {
       console.error('Missing customer email in session:', session.id);
@@ -63,12 +67,39 @@ export const POST: APIRoute = async ({ request }) => {
       );
     }
 
+    // Extract line items
+    const lineItems: any[] = [];
+
+    if (session.line_items?.data) {
+      for (const item of session.line_items.data) {
+        const price = item.price;
+        if (!price) continue;
+
+        lineItems.push({
+          priceId: price.id,
+          productName: item.description || "Unknown Product",
+          quantity: item.quantity || 1,
+          unitAmount: price.unit_amount || 0,
+          totalAmount: item.amount_total || 0,
+          category: "service" // Will be enriched from Convex inventory
+        });
+      }
+    }
+
+    // Generate itemDescription from line items
+    let itemDescription: string;
+    if (lineItems.length > 0) {
+      const summary = lineItems.map(item => `${item.productName} (${item.quantity}x)`).join(", ");
+      itemDescription = summary;
+    } else {
+      itemDescription = session.metadata?.itemDescription || "No description provided";
+    }
+
     const customerName = session.customer_details.name || 'Unknown Customer';
     const email = session.customer_details.email;
     const phone = session.customer_details.phone || undefined;
     const stripeSessionId = session.id;
     const orderType = (session.metadata?.orderType as 'service' | 'product') || 'service';
-    const itemDescription = session.metadata?.itemDescription || 'No description provided';
 
     // 6. Initialize Convex client
     const convexUrl = import.meta.env.PUBLIC_CONVEX_URL;
@@ -91,6 +122,7 @@ export const POST: APIRoute = async ({ request }) => {
         stripeSessionId,
         orderType,
         itemDescription,
+        lineItems: lineItems.length > 0 ? lineItems : undefined,
       });
 
       console.log('Order created successfully:', result.orderId);

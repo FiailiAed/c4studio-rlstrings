@@ -20,12 +20,32 @@ export default defineSchema({
     pickupCode: v.string(),        // Simple 4-digit code for the hand-off
     droppedOffAt: v.optional(v.number()),
     completedAt: v.optional(v.number()),
+    lineItems: v.optional(v.array(v.object({
+      priceId: v.string(),
+      productName: v.string(),
+      quantity: v.number(),
+      unitAmount: v.number(),      // in cents
+      totalAmount: v.number(),     // in cents
+      category: v.union(
+        v.literal("head"),
+        v.literal("shaft"),
+        v.literal("mesh"),
+        v.literal("strings"),
+        v.literal("service")
+      )
+    }))),
   }).index("by_email", ["email"]).index("by_status", ["status"]),
 
   inventory: defineTable({
     name: v.string(),
     priceId: v.string(),           // The ID from your Stripe account
     stock: v.number(),
-    category: v.union(v.literal("head"), v.literal("shaft"), v.literal("mesh")),
+    category: v.union(
+      v.literal("head"),
+      v.literal("shaft"),
+      v.literal("mesh"),
+      v.literal("strings"),
+      v.literal("service")
+    ),
   }),
 });

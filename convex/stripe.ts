@@ -17,7 +17,13 @@ export const createProductAndSync = action({
   args: {
     name: v.string(),
     priceInCents: v.number(),
-    category: v.union(v.literal("head"), v.literal("shaft"), v.literal("mesh"))
+    category: v.union(
+      v.literal("head"),
+      v.literal("shaft"),
+      v.literal("mesh"),
+      v.literal("strings"),
+      v.literal("service")
+    )
   },
   handler: async (ctx, args) => {
     const stripe = getStripe();
@@ -48,6 +54,148 @@ export const createProductAndSync = action({
   },
 });
 
+// IMPORT: Sync Stripe products to Convex inventory
+export const importStripeProducts = action({
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    requireAdmin(identity);
+
+    const stripe = getStripe();
+
+    const prices = await stripe.prices.list({
+      active: true,
+      limit: 100,
+      expand: ['data.product']
+    });
+
+    const imported = [];
+
+    for (const price of prices.data) {
+      const product = price.product as Stripe.Product;
+
+      // Skip if already exists
+      const existing = await ctx.runQuery(internal.inventory.getByPriceId, {
+        priceId: price.id
+      });
+
+      if (existing) continue;
+
+      // Get category from Stripe product metadata
+      const category = product.metadata?.category || "service";
+
+      // Validate category
+      const validCategories = ["head", "shaft", "mesh", "strings", "service"];
+      if (!validCategories.includes(category)) {
+        console.warn(`Invalid category ${category} for ${product.name}`);
+        continue;
+      }
+
+      // Insert into Convex
+      await ctx.runMutation(internal.inventory.addItem, {
+        name: product.name,
+        priceId: price.id,
+        stock: 0,
+        category: category as any
+      });
+
+      imported.push({ name: product.name, priceId: price.id, category });
+    }
+
+    return { success: true, imported };
+  }
+});
+
+// ATOMIC CHECKOUT: Create multi-line-item checkout session
+export const createAtomicCheckout = action({
+  args: {
+    items: v.array(v.object({
+      priceId: v.string(),
+      quantity: v.number()
+    })),
+    successUrl: v.string(),
+    cancelUrl: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const stripe = getStripe();
+
+    // 1. Validate stock levels
+    const stockErrors = [];
+    for (const item of args.items) {
+      const inventoryItem = await ctx.runQuery(internal.inventory.getByPriceId, {
+        priceId: item.priceId
+      });
+
+      if (!inventoryItem) {
+        stockErrors.push(`Product ${item.priceId} not found`);
+        continue;
+      }
+
+      if (inventoryItem.stock < item.quantity) {
+        stockErrors.push(`Insufficient stock for ${inventoryItem.name}: requested ${item.quantity}, available ${inventoryItem.stock}`);
+      }
+    }
+
+    if (stockErrors.length > 0) {
+      throw new Error(`Stock validation failed: ${stockErrors.join(", ")}`);
+    }
+
+    // 2. Fetch product details for metadata
+    const lineItemsForMetadata = await Promise.all(
+      args.items.map(async (item) => {
+        const inventoryItem = await ctx.runQuery(internal.inventory.getByPriceId, {
+          priceId: item.priceId
+        });
+        return {
+          priceId: item.priceId,
+          name: inventoryItem!.name,
+          quantity: item.quantity,
+          category: inventoryItem!.category
+        };
+      })
+    );
+
+    // 3. Determine build type
+    const categories = new Set(lineItemsForMetadata.map(i => i.category));
+    const hasService = categories.has("service");
+    const hasProducts = categories.size > (hasService ? 1 : 0);
+
+    let buildType: string;
+    if (hasService && !hasProducts) {
+      buildType = "service_only";
+    } else if (categories.has("head") && categories.has("mesh") && categories.has("strings")) {
+      buildType = "full_setup";
+    } else {
+      buildType = "custom";
+    }
+
+    // 4. Create Stripe Checkout Session
+    const session = await stripe.checkout.sessions.create({
+      mode: "payment",
+      line_items: args.items.map(item => ({
+        price: item.priceId,
+        quantity: item.quantity
+      })),
+      success_url: args.successUrl,
+      cancel_url: args.cancelUrl,
+      metadata: {
+        orderType: hasService ? "service" : "product",
+        buildType,
+        itemsJson: JSON.stringify(lineItemsForMetadata)
+      },
+      billing_address_collection: "required",
+      phone_number_collection: {
+        enabled: true
+      }
+    });
+
+    return {
+      sessionId: session.id,
+      url: session.url,
+      buildType
+    };
+  }
+});
+
 // WEBHOOK HANDLER: Process completed checkout sessions
 export const handleCheckoutCompleted = action({
   args: {
@@ -57,8 +205,48 @@ export const handleCheckoutCompleted = action({
     stripeSessionId: v.string(),
     orderType: v.union(v.literal("service"), v.literal("product")),
     itemDescription: v.string(),
+    lineItems: v.optional(v.array(v.object({
+      priceId: v.string(),
+      productName: v.string(),
+      quantity: v.number(),
+      unitAmount: v.number(),
+      totalAmount: v.number(),
+      category: v.string()
+    })))
   },
   handler: async (ctx, args): Promise<{ success: boolean; orderId: string }> => {
+    // Enrich line items with category from inventory
+    let enrichedLineItems: any[] | undefined;
+
+    if (args.lineItems) {
+      enrichedLineItems = await Promise.all(
+        args.lineItems.map(async (item) => {
+          const inventoryItem = await ctx.runQuery(internal.inventory.getByPriceId, {
+            priceId: item.priceId
+          });
+
+          return {
+            ...item,
+            category: inventoryItem?.category || "service"
+          };
+        })
+      );
+
+      // Decrement stock for each item
+      for (const item of enrichedLineItems) {
+        const inventoryItem = await ctx.runQuery(internal.inventory.getByPriceId, {
+          priceId: item.priceId
+        });
+
+        if (inventoryItem && inventoryItem._id) {
+          await ctx.runMutation(internal.inventory.decrementStock, {
+            inventoryId: inventoryItem._id,
+            quantity: item.quantity
+          });
+        }
+      }
+    }
+
     // Create order via internal mutation
     const orderId: string = await ctx.runMutation(internal.orders.createOrder, {
       customerName: args.customerName,
@@ -67,6 +255,7 @@ export const handleCheckoutCompleted = action({
       stripeSessionId: args.stripeSessionId,
       orderType: args.orderType,
       itemDescription: args.itemDescription,
+      lineItems: enrichedLineItems,
     });
 
     return { success: true, orderId };

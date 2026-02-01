@@ -61,6 +61,20 @@ export const createOrder = internalMutation({
     stripeSessionId: v.string(),
     orderType: v.union(v.literal("service"), v.literal("product")),
     itemDescription: v.string(),
+    lineItems: v.optional(v.array(v.object({
+      priceId: v.string(),
+      productName: v.string(),
+      quantity: v.number(),
+      unitAmount: v.number(),
+      totalAmount: v.number(),
+      category: v.union(
+        v.literal("head"),
+        v.literal("shaft"),
+        v.literal("mesh"),
+        v.literal("strings"),
+        v.literal("service")
+      )
+    })))
   },
   handler: async (ctx, args) => {
     // Generate 4-digit pickup code (0000-9999)
@@ -78,6 +92,7 @@ export const createOrder = internalMutation({
       orderType: args.orderType,
       itemDescription: args.itemDescription,
       pickupCode,
+      lineItems: args.lineItems,
     });
 
     return orderId;
@@ -102,6 +117,7 @@ export const getOrderById = query({
       status: order.status,
       orderType: order.orderType,
       itemDescription: order.itemDescription,
+      lineItems: order.lineItems,
       pickupCode: order.pickupCode,
       droppedOffAt: order.droppedOffAt,
       completedAt: order.completedAt,

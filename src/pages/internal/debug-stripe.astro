@@ -156,6 +156,95 @@ const stripePriceMap = new Map(
       )}
     </div>
 
+    <!-- Import Stripe Products -->
+    <div class="bg-white/5 backdrop-blur-lg rounded-2xl p-8 mb-8">
+      <h2 class="text-2xl font-bold text-white mb-6">Import Stripe Products</h2>
+      <p class="text-gray-400 mb-4">Sync active products from Stripe to Convex inventory. Requires products to have <code class="bg-black/50 px-2 py-1 rounded">metadata.category</code> set.</p>
+
+      <button
+        id="import-products-btn"
+        class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg transition-colors"
+      >
+        Import Products from Stripe
+      </button>
+
+      <div id="import-result" class="mt-4 hidden">
+        <div id="import-success" class="bg-green-500/10 border border-green-500 rounded-lg p-4 text-green-400 hidden">
+          <p class="font-bold">✓ Products Imported</p>
+          <p id="import-count" class="mt-2"></p>
+          <pre id="import-details" class="bg-black/50 rounded-lg p-2 mt-2 text-xs overflow-auto max-h-40"></pre>
+        </div>
+        <div id="import-error" class="bg-red-500/10 border border-red-500 rounded-lg p-4 text-red-400 hidden">
+          <p class="font-bold">✗ Import Failed</p>
+          <p id="import-error-message" class="mt-2"></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Test Atomic Checkout -->
+    <div class="bg-white/5 backdrop-blur-lg rounded-2xl p-8 mb-8">
+      <h2 class="text-2xl font-bold text-white mb-6">Test Atomic Checkout</h2>
+      <p class="text-gray-400 mb-4">Create a multi-line-item checkout session for testing.</p>
+
+      <div class="space-y-4 mb-4">
+        <div>
+          <label class="text-white block mb-2">Select Products:</label>
+          <div id="checkout-items" class="space-y-2">
+            {inventoryComparison.map((item) => {
+              const stripeMatch = stripePriceMap.get(item.priceId);
+              if (!stripeMatch?.active) return null;
+
+              return (
+                <label class="flex items-center gap-3 text-white bg-black/30 p-3 rounded-lg">
+                  <input
+                    type="checkbox"
+                    class="checkout-item-checkbox w-4 h-4"
+                    data-price-id={item.priceId}
+                    data-name={item.name}
+                    data-stock={item.stock}
+                  />
+                  <span class="flex-1">
+                    {item.name} - ${(stripeMatch.amount / 100).toFixed(2)}
+                    <span class="text-gray-400 text-sm ml-2">(Stock: {item.stock})</span>
+                  </span>
+                  <input
+                    type="number"
+                    class="checkout-item-quantity bg-black/50 text-white px-2 py-1 w-16 rounded"
+                    min="1"
+                    max={item.stock}
+                    value="1"
+                    disabled
+                    data-price-id={item.priceId}
+                  />
+                </label>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      <button
+        id="create-checkout-btn"
+        class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-colors"
+      >
+        Create Checkout Session
+      </button>
+
+      <div id="checkout-result" class="mt-4 hidden">
+        <div id="checkout-success" class="bg-green-500/10 border border-green-500 rounded-lg p-4 text-green-400 hidden">
+          <p class="font-bold">✓ Checkout Session Created</p>
+          <p id="checkout-build-type" class="mt-2"></p>
+          <a id="checkout-url" href="#" target="_blank" class="inline-block mt-3 bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg">
+            Open Checkout Page →
+          </a>
+        </div>
+        <div id="checkout-error" class="bg-red-500/10 border border-red-500 rounded-lg p-4 text-red-400 hidden">
+          <p class="font-bold">✗ Checkout Failed</p>
+          <p id="checkout-error-message" class="mt-2"></p>
+        </div>
+      </div>
+    </div>
+
     <!-- Ping Stripe Button -->
     <div class="bg-white/5 backdrop-blur-lg rounded-2xl p-8">
       <h2 class="text-2xl font-bold text-white mb-6">Stripe API Connection Test</h2>
@@ -214,6 +303,129 @@ const stripePriceMap = new Map(
 
     // Initialize authentication when page loads
     setupAuthenticatedClient();
+
+    // Import Products Button Handler
+    const importBtn = document.getElementById('import-products-btn') as HTMLButtonElement | null;
+    const importResultDiv = document.getElementById('import-result');
+    const importSuccessDiv = document.getElementById('import-success');
+    const importErrorDiv = document.getElementById('import-error');
+    const importCountEl = document.getElementById('import-count');
+    const importDetailsEl = document.getElementById('import-details');
+    const importErrorMessageEl = document.getElementById('import-error-message');
+
+    importBtn?.addEventListener('click', async () => {
+      if (!importBtn) return;
+
+      importBtn.disabled = true;
+      importBtn.textContent = 'Importing...';
+
+      importResultDiv?.classList.remove('hidden');
+      importSuccessDiv?.classList.add('hidden');
+      importErrorDiv?.classList.add('hidden');
+
+      try {
+        await setupAuthenticatedClient();
+
+        const result = await client.action(api.stripe.importStripeProducts, {});
+
+        if (importCountEl && importDetailsEl) {
+          importCountEl.textContent = `Imported ${result.imported.length} products`;
+          importDetailsEl.textContent = JSON.stringify(result.imported, null, 2);
+        }
+
+        importSuccessDiv?.classList.remove('hidden');
+
+        // Refresh page after 2 seconds to show new inventory
+        setTimeout(() => {
+          window.location.reload();
+        }, 2000);
+      } catch (err: any) {
+        if (importErrorMessageEl) {
+          importErrorMessageEl.textContent = err.message;
+        }
+        importErrorDiv?.classList.remove('hidden');
+      } finally {
+        importBtn.disabled = false;
+        importBtn.textContent = 'Import Products from Stripe';
+      }
+    });
+
+    // Checkout Item Checkbox Handler
+    const checkboxes = document.querySelectorAll('.checkout-item-checkbox') as NodeListOf<HTMLInputElement>;
+    checkboxes.forEach(checkbox => {
+      checkbox.addEventListener('change', () => {
+        const priceId = checkbox.dataset.priceId;
+        const quantityInput = document.querySelector(`.checkout-item-quantity[data-price-id="${priceId}"]`) as HTMLInputElement;
+        if (quantityInput) {
+          quantityInput.disabled = !checkbox.checked;
+        }
+      });
+    });
+
+    // Create Checkout Button Handler
+    const createCheckoutBtn = document.getElementById('create-checkout-btn') as HTMLButtonElement | null;
+    const checkoutResultDiv = document.getElementById('checkout-result');
+    const checkoutSuccessDiv = document.getElementById('checkout-success');
+    const checkoutErrorDiv = document.getElementById('checkout-error');
+    const checkoutBuildTypeEl = document.getElementById('checkout-build-type');
+    const checkoutUrlEl = document.getElementById('checkout-url') as HTMLAnchorElement;
+    const checkoutErrorMessageEl = document.getElementById('checkout-error-message');
+
+    createCheckoutBtn?.addEventListener('click', async () => {
+      if (!createCheckoutBtn) return;
+
+      // Collect selected items
+      const selectedItems: Array<{ priceId: string; quantity: number }> = [];
+      checkboxes.forEach(checkbox => {
+        if (checkbox.checked) {
+          const priceId = checkbox.dataset.priceId;
+          const quantityInput = document.querySelector(`.checkout-item-quantity[data-price-id="${priceId}"]`) as HTMLInputElement;
+          if (priceId && quantityInput) {
+            selectedItems.push({
+              priceId,
+              quantity: parseInt(quantityInput.value) || 1
+            });
+          }
+        }
+      });
+
+      if (selectedItems.length === 0) {
+        alert('Please select at least one product');
+        return;
+      }
+
+      createCheckoutBtn.disabled = true;
+      createCheckoutBtn.textContent = 'Creating...';
+
+      checkoutResultDiv?.classList.remove('hidden');
+      checkoutSuccessDiv?.classList.add('hidden');
+      checkoutErrorDiv?.classList.add('hidden');
+
+      try {
+        await setupAuthenticatedClient();
+
+        const result = await client.action(api.stripe.createAtomicCheckout, {
+          items: selectedItems,
+          successUrl: `${window.location.origin}/order/{CHECKOUT_SESSION_ID}`,
+          cancelUrl: window.location.href
+        });
+
+        if (checkoutBuildTypeEl && checkoutUrlEl) {
+          checkoutBuildTypeEl.textContent = `Build Type: ${result.buildType}`;
+          checkoutUrlEl.href = result.url || '#';
+        }
+
+        checkoutSuccessDiv?.classList.remove('hidden');
+      } catch (err: any) {
+        if (checkoutErrorMessageEl) {
+          checkoutErrorMessageEl.textContent = err.message;
+        }
+        checkoutErrorDiv?.classList.remove('hidden');
+      } finally {
+        createCheckoutBtn.disabled = false;
+        createCheckoutBtn.textContent = 'Create Checkout Session';
+      }
+    });
 
     const btn = document.getElementById('ping-stripe-btn') as HTMLButtonElement | null;
     const resultDiv = document.getElementById('ping-result');
