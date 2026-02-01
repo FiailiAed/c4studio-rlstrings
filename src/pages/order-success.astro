@@ -180,8 +180,11 @@ const total = order?.lineItems?.reduce((sum: number, item: any) => sum + item.to
     }
   </script>
 
-  {isProcessing && (
-    <script>
+  <script>
+    // Only refresh if we're in processing state (order not found yet)
+    const processingElement = document.querySelector('[role="status"]');
+
+    if (processingElement) {
       const maxRetries = 5;  // 10 seconds (5 retries × 2 seconds)
       let retryCount = parseInt(sessionStorage.getItem('orderRetryCount') || '0');
 
@@ -205,6 +208,6 @@ const total = order?.lineItems?.reduce((sum: number, item: any) => sum + item.to
           </div>
         `;
       }
-    </script>
-  )}
+    }
+  </script>
 </MainLayout>

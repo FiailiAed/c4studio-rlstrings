@@ -343,6 +343,8 @@ export const debugPingStripe = action({
 
     try {
       const account = await stripe.accounts.retrieve();
+      console.log("🪵🪵 LOGGING ACCOUNT INFO");
+      console.log(account);
       return {
         success: true,
         accountName: account.business_profile?.name || account.email || account.id,

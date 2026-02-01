@@ -1,0 +1,1019 @@
+---
+import MainLayout from '../../layouts/MainLayout.astro';
+import { getConvexClient } from '../../lib/convex';
+import { api } from '../../../convex/_generated/api';
+
+const convex = getConvexClient();
+const { grouped } = await convex.query(api.inventory.getStorefrontFiltered, {});
+
+// CRITICAL: Validate service item exists
+const serviceItem = grouped.service.find(s =>
+  s.name === "Professional Stringing - Men's"
+) || grouped.service[0];
+
+if (!serviceItem) {
+  return Astro.redirect('/shop?error=no_service');
+}
+
+// Pass to client
+const serverData = {
+  grouped,
+  serviceItem
+};
+---
+
+<MainLayout title="Build Your Setup - RL Strings">
+  <!-- Progress Bar (Sticky Header) -->
+  <div id="progress-bar" class="sticky top-0 z-40 bg-black/95 backdrop-blur-lg border-b-4 border-red-600 mb-8">
+    <div class="container mx-auto px-4 py-6">
+      <div class="flex items-center justify-between max-w-4xl mx-auto">
+        <!-- Step 1: Head -->
+        <div class="progress-step flex flex-col items-center flex-1" data-step="1">
+          <div class="step-circle w-12 h-12 md:w-16 md:h-16 rounded-full border-4 flex items-center justify-center text-lg md:text-2xl font-bold transition-all duration-300">
+            1
+          </div>
+          <span class="step-label hidden md:block mt-2 text-sm font-semibold">Head</span>
+        </div>
+
+        <!-- Connector Line -->
+        <div class="step-connector flex-1 h-1 bg-gray-700 mx-2"></div>
+
+        <!-- Step 2: Mesh -->
+        <div class="progress-step flex flex-col items-center flex-1" data-step="2">
+          <div class="step-circle w-12 h-12 md:w-16 md:h-16 rounded-full border-4 flex items-center justify-center text-lg md:text-2xl font-bold transition-all duration-300">
+            2
+          </div>
+          <span class="step-label hidden md:block mt-2 text-sm font-semibold">Mesh</span>
+        </div>
+
+        <!-- Connector Line -->
+        <div class="step-connector flex-1 h-1 bg-gray-700 mx-2"></div>
+
+        <!-- Step 3: Strings -->
+        <div class="progress-step flex flex-col items-center flex-1" data-step="3">
+          <div class="step-circle w-12 h-12 md:w-16 md:h-16 rounded-full border-4 flex items-center justify-center text-lg md:text-2xl font-bold transition-all duration-300">
+            3
+          </div>
+          <span class="step-label hidden md:block mt-2 text-sm font-semibold">Strings</span>
+        </div>
+
+        <!-- Connector Line -->
+        <div class="step-connector flex-1 h-1 bg-gray-700 mx-2"></div>
+
+        <!-- Step 4: Review -->
+        <div class="progress-step flex flex-col items-center flex-1" data-step="4">
+          <div class="step-circle w-12 h-12 md:w-16 md:h-16 rounded-full border-4 flex items-center justify-center text-lg md:text-2xl font-bold transition-all duration-300">
+            4
+          </div>
+          <span class="step-label hidden md:block mt-2 text-sm font-semibold">Review</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step Content Container -->
+  <div id="step-container" class="min-h-[60vh] mb-32">
+    <!-- Content injected by JavaScript -->
+  </div>
+
+  <!-- Fixed Bottom Navigation -->
+  <div class="fixed bottom-0 left-0 right-0 bg-black/90 backdrop-blur-lg border-t-4 border-red-600 p-4 z-50">
+    <div class="container mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
+      <!-- Back button -->
+      <button id="back-btn" class="hidden w-full md:w-auto px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white font-semibold rounded-lg transition-all duration-300 min-h-[44px] md:min-h-[56px]">
+        ← Back
+      </button>
+
+      <!-- Right side controls -->
+      <div class="flex flex-col md:flex-row gap-4 w-full md:w-auto">
+        <!-- Skip button (Steps 2-3 only) -->
+        <button id="skip-btn" class="hidden w-full md:w-auto px-6 py-3 bg-transparent border-2 border-gray-500 hover:border-red-600 text-gray-300 hover:text-white font-semibold rounded-lg transition-all duration-300 min-h-[44px] md:min-h-[56px]">
+          Skip - I'm bringing my own
+        </button>
+
+        <!-- Next/Checkout button -->
+        <button id="next-btn" class="w-full md:w-auto px-8 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] md:min-h-[56px]" disabled>
+          Next Step →
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div id="toast-container" class="fixed top-4 right-4 z-50 space-y-2">
+    <!-- Toasts injected by JavaScript -->
+  </div>
+
+  <!-- ARIA Live Region -->
+  <div id="aria-live" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
+
+  <!-- Hidden Server Data -->
+  <script id="server-data" type="application/json" is:inline set:html={JSON.stringify(serverData)} />
+
+  <style>
+    /* Step Animations */
+    @keyframes slide-in-right {
+      from {
+        opacity: 0;
+        transform: translateX(50px);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+
+    @keyframes slide-out-left {
+      from {
+        opacity: 1;
+        transform: translateX(0);
+      }
+      to {
+        opacity: 0;
+        transform: translateX(-50px);
+      }
+    }
+
+    @keyframes check-pop {
+      0% {
+        transform: scale(0);
+      }
+      50% {
+        transform: scale(1.2);
+      }
+      100% {
+        transform: scale(1);
+      }
+    }
+
+    @keyframes fade-in {
+      from {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .step-transition-enter {
+      animation: slide-in-right 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .step-transition-exit {
+      animation: slide-out-left 0.3s ease-out;
+    }
+
+    .animate-fade-in {
+      animation: fade-in 0.3s ease-out;
+    }
+
+    /* Checkmark animation only - everything else is Tailwind */
+    @keyframes check-pop {
+      0% { transform: scale(0); }
+      50% { transform: scale(1.2); }
+      100% { transform: scale(1); }
+    }
+
+    /* Progress Bar States */
+    .progress-step .step-circle {
+      background: #374151;
+      border-color: #4b5563;
+      color: #9ca3af;
+    }
+
+    .progress-step.active .step-circle {
+      background: #dc2626;
+      border-color: #dc2626;
+      color: white;
+      transform: scale(1.1);
+    }
+
+    .progress-step.completed .step-circle {
+      background: #10b981;
+      border-color: #10b981;
+      color: white;
+    }
+
+    .progress-step.completed .step-circle::before {
+      content: '✓';
+      position: absolute;
+      font-size: 1.5rem;
+    }
+
+    .progress-step.active .step-label,
+    .progress-step.completed .step-label {
+      color: white;
+      font-weight: bold;
+    }
+
+    /* Screen reader only */
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border-width: 0;
+    }
+  </style>
+
+  <script>
+    import { ConvexClient } from "convex/browser";
+    import { api } from "../../../convex/_generated/api";
+
+    const convexUrl = import.meta.env.PUBLIC_CONVEX_URL;
+    const client = new ConvexClient(convexUrl);
+
+    // ========== TYPES ==========
+    interface ItemSelection {
+      priceId: string;
+      name: string;
+      price: number;
+    }
+
+    interface BuilderState {
+      currentStep: 1 | 2 | 3 | 4;
+      selections: {
+        head: ItemSelection | null;
+        mesh: ItemSelection | null;
+        strings: ItemSelection | null;
+        service: ItemSelection;
+      };
+      skipped: {
+        mesh: boolean;
+        strings: boolean;
+      };
+      timestamp: number;
+    }
+
+    interface PriceData {
+      amount: number;
+      currency: string;
+    }
+
+    // ========== GLOBAL STATE ==========
+    let state: BuilderState;
+    let priceMap: Record<string, PriceData> = {};
+    let serverData: any;
+
+    // ========== INITIALIZATION ==========
+    function init() {
+      console.log('🚀 Builder initializing...');
+
+      // Load server data
+      const serverDataEl = document.getElementById('server-data');
+      if (serverDataEl) {
+        serverData = JSON.parse(serverDataEl.textContent || '{}');
+        console.log('✅ Server data loaded:', serverData);
+      } else {
+        console.error('❌ Server data element not found');
+      }
+
+      // Load or create state
+      state = loadState();
+      console.log('✅ State loaded:', state);
+
+      // Fetch prices
+      fetchPrices();
+
+      // Render current step
+      renderStep(state.currentStep);
+
+      // Setup event listeners
+      setupNavigationListeners();
+
+      console.log('✅ Builder initialization complete');
+    }
+
+    // ========== STATE MANAGEMENT ==========
+    function loadState(): BuilderState {
+      const stored = localStorage.getItem('rlStringsBuilder');
+
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+
+          // Validate expiration (24hr TTL)
+          const age = Date.now() - parsed.timestamp;
+          if (age > 24 * 60 * 60 * 1000) {
+            console.log('State expired, creating new');
+            return createDefaultState();
+          }
+
+          // Validate structure
+          if (validateState(parsed)) {
+            return parsed;
+          }
+        } catch (err) {
+          console.error('Failed to parse state:', err);
+        }
+      }
+
+      return createDefaultState();
+    }
+
+    function createDefaultState(): BuilderState {
+      return {
+        currentStep: 1,
+        selections: {
+          head: null,
+          mesh: null,
+          strings: null,
+          service: {
+            priceId: serverData.serviceItem.priceId,
+            name: serverData.serviceItem.name,
+            price: 0 // Will be set after price fetch
+          }
+        },
+        skipped: {
+          mesh: false,
+          strings: false
+        },
+        timestamp: Date.now()
+      };
+    }
+
+    function validateState(s: any): s is BuilderState {
+      return (
+        s &&
+        typeof s === 'object' &&
+        [1, 2, 3, 4].includes(s.currentStep) &&
+        s.selections &&
+        s.skipped &&
+        typeof s.timestamp === 'number'
+      );
+    }
+
+    function saveState() {
+      state.timestamp = Date.now();
+      try {
+        localStorage.setItem('rlStringsBuilder', JSON.stringify(state));
+      } catch (err) {
+        console.error('localStorage full, trying sessionStorage:', err);
+        try {
+          sessionStorage.setItem('rlStringsBuilder', JSON.stringify(state));
+        } catch (err2) {
+          console.error('Failed to save state:', err2);
+          showToast('Warning: Unable to save progress', 'warning');
+        }
+      }
+    }
+
+    function validateStep(step: number): boolean {
+      switch (step) {
+        case 1:
+          return state.selections.head !== null;
+        case 2:
+          return state.selections.mesh !== null || state.skipped.mesh;
+        case 3:
+          return state.selections.strings !== null || state.skipped.strings;
+        case 4:
+          return true; // Review always valid
+        default:
+          return false;
+      }
+    }
+
+    // ========== PRICE FETCHING ==========
+    async function fetchPrices() {
+      let retries = 0;
+      const maxRetries = 3;
+
+      while (retries < maxRetries) {
+        try {
+          const stripeProducts = await client.action(api.stripe.fetchStripeProducts, {});
+
+          // Build price map
+          stripeProducts.forEach(product => {
+            priceMap[product.priceId] = {
+              amount: product.amount || 0,
+              currency: product.currency
+            };
+          });
+
+          // Update service price in state
+          if (state.selections.service && priceMap[state.selections.service.priceId]) {
+            state.selections.service.price = priceMap[state.selections.service.priceId].amount;
+            saveState();
+          }
+
+          // Inject prices into visible product cards
+          updateCardPrices();
+
+          return;
+        } catch (err) {
+          retries++;
+          const delay = Math.pow(2, retries) * 1000; // Exponential backoff
+          console.error(`Price fetch attempt ${retries} failed:`, err);
+
+          if (retries < maxRetries) {
+            await new Promise(resolve => setTimeout(resolve, delay));
+          } else {
+            showToast('Failed to load prices. Please refresh.', 'error');
+          }
+        }
+      }
+    }
+
+    function updateCardPrices() {
+      document.querySelectorAll<HTMLElement>('.product-card').forEach(card => {
+        const priceId = card.dataset.priceId;
+        if (!priceId) return;
+
+        const priceData = priceMap[priceId];
+        if (priceData) {
+          const priceEl = card.querySelector<HTMLElement>('.product-price');
+          if (priceEl) {
+            priceEl.innerHTML = `$${(priceData.amount / 100).toFixed(2)}`;
+          }
+          card.dataset.price = priceData.amount.toString();
+        }
+      });
+    }
+
+    // ========== STEP RENDERING ==========
+    async function renderStep(step: number) {
+      const container = document.getElementById('step-container');
+      if (!container) return;
+
+      // Exit animation
+      container.classList.add('step-transition-exit');
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      // Clear and inject new content
+      container.classList.remove('step-transition-exit');
+
+      switch (step) {
+        case 1:
+          renderHeadStep(container);
+          break;
+        case 2:
+          renderMeshStep(container);
+          break;
+        case 3:
+          renderStringsStep(container);
+          break;
+        case 4:
+          renderReviewStep(container);
+          break;
+      }
+
+      // Enter animation
+      container.classList.add('step-transition-enter');
+      setTimeout(() => container.classList.remove('step-transition-enter'), 400);
+
+      // Update progress bar
+      updateProgressBar(step);
+
+      // Update navigation controls
+      updateNavigationControls(step);
+
+      // Focus first interactive element
+      const firstCard = container.querySelector<HTMLElement>('.product-card');
+      if (firstCard) firstCard.focus();
+
+      // Announce to screen readers
+      const title = container.querySelector('h1')?.textContent || '';
+      announceToScreenReader(`Step ${step}: ${title}`);
+    }
+
+    function renderHeadStep(container: HTMLElement) {
+      const heads = serverData.grouped.head || [];
+
+      container.innerHTML = `
+        <div class="max-w-6xl mx-auto">
+          <h1 class="text-4xl md:text-5xl font-bold text-center mb-4">Choose Your Head</h1>
+          <p class="text-center text-gray-300 text-lg mb-12">Select the lacrosse head for your perfect setup</p>
+
+          ${heads.length === 0 ? `
+            <div class="text-center py-16">
+              <p class="text-xl text-red-500 mb-4">Out of stock</p>
+              <a href="/shop" class="text-red-600 hover:text-red-500 underline">Return to shop</a>
+            </div>
+          ` : `
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              ${heads.map((item: any) => `
+                <div class="product-card relative cursor-pointer rounded-lg p-6 transition-all duration-300 border-2
+                     ${state.selections.head?.priceId === item.priceId
+                       ? 'border-green-500 border-[3px] shadow-[0_0_25px_rgba(16,185,129,0.6)] scale-[1.02]'
+                       : 'border-gray-700 hover:border-red-600 hover:-translate-y-1'}"
+                     data-price-id="${item.priceId}"
+                     data-name="${item.name}"
+                     data-category="head"
+                     data-stock="${item.stock}"
+                     tabindex="0"
+                     role="button"
+                     aria-pressed="${state.selections.head?.priceId === item.priceId}">
+                  <div class="text-6xl mb-4 text-center">🏑</div>
+                  <h3 class="text-xl font-bold mb-2 text-center">${item.name}</h3>
+                  <p class="product-price text-2xl font-bold text-red-500 mb-2 text-center">Loading...</p>
+                  <p class="text-sm text-gray-400 text-center ${item.stock < 3 ? 'text-orange-500' : ''}">${item.stock} in stock</p>
+                </div>
+              `).join('')}
+            </div>
+          `}
+        </div>
+      `;
+
+      // Update prices
+      updateCardPrices();
+
+      // Attach click handlers
+      container.querySelectorAll<HTMLElement>('.product-card').forEach(card => {
+        card.addEventListener('click', () => handleProductSelection(card, 'head'));
+        card.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            handleProductSelection(card, 'head');
+          }
+        });
+      });
+    }
+
+    function renderMeshStep(container: HTMLElement) {
+      const meshItems = serverData.grouped.mesh || [];
+
+      container.innerHTML = `
+        <div class="max-w-6xl mx-auto">
+          <h1 class="text-4xl md:text-5xl font-bold text-center mb-4">Pick Your Mesh</h1>
+          <p class="text-center text-gray-300 text-lg mb-12">Choose mesh for your pocket, or bring your own</p>
+
+          ${meshItems.length === 0 ? `
+            <div class="text-center py-16">
+              <p class="text-xl text-red-500 mb-4">Out of stock</p>
+              <p class="text-gray-400 mb-4">You can skip this step and bring your own mesh</p>
+            </div>
+          ` : `
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              ${meshItems.map((item: any) => `
+                <div class="product-card relative cursor-pointer rounded-lg p-6 transition-all duration-300 border-2
+                     ${state.selections.mesh?.priceId === item.priceId
+                       ? 'border-green-500 border-[3px] shadow-[0_0_25px_rgba(16,185,129,0.6)] scale-[1.02]'
+                       : 'border-gray-700 hover:border-red-600 hover:-translate-y-1'}"
+                     data-price-id="${item.priceId}"
+                     data-name="${item.name}"
+                     data-category="mesh"
+                     data-stock="${item.stock}"
+                     tabindex="0"
+                     role="button"
+                     aria-pressed="${state.selections.mesh?.priceId === item.priceId}">
+                  <div class="text-6xl mb-4 text-center">🕸️</div>
+                  <h3 class="text-xl font-bold mb-2 text-center">${item.name}</h3>
+                  <p class="product-price text-2xl font-bold text-red-500 mb-2 text-center">Loading...</p>
+                  <p class="text-sm text-gray-400 text-center ${item.stock < 3 ? 'text-orange-500' : ''}">${item.stock} in stock</p>
+                </div>
+              `).join('')}
+            </div>
+          `}
+        </div>
+      `;
+
+      updateCardPrices();
+
+      container.querySelectorAll<HTMLElement>('.product-card').forEach(card => {
+        card.addEventListener('click', () => handleProductSelection(card, 'mesh'));
+        card.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            handleProductSelection(card, 'mesh');
+          }
+        });
+      });
+    }
+
+    function renderStringsStep(container: HTMLElement) {
+      const stringItems = serverData.grouped.strings || [];
+
+      container.innerHTML = `
+        <div class="max-w-6xl mx-auto">
+          <h1 class="text-4xl md:text-5xl font-bold text-center mb-4">Choose Your Strings</h1>
+          <p class="text-center text-gray-300 text-lg mb-12">Select string type, or bring your own</p>
+
+          ${stringItems.length === 0 ? `
+            <div class="text-center py-16">
+              <p class="text-xl text-red-500 mb-4">Out of stock</p>
+              <p class="text-gray-400 mb-4">You can skip this step and bring your own strings</p>
+            </div>
+          ` : `
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              ${stringItems.map((item: any) => `
+                <div class="product-card relative cursor-pointer rounded-lg p-6 transition-all duration-300 border-2
+                     ${state.selections.strings?.priceId === item.priceId
+                       ? 'border-green-500 border-[3px] shadow-[0_0_25px_rgba(16,185,129,0.6)] scale-[1.02]'
+                       : 'border-gray-700 hover:border-red-600 hover:-translate-y-1'}"
+                     data-price-id="${item.priceId}"
+                     data-name="${item.name}"
+                     data-category="strings"
+                     data-stock="${item.stock}"
+                     tabindex="0"
+                     role="button"
+                     aria-pressed="${state.selections.strings?.priceId === item.priceId}">
+                  <div class="text-6xl mb-4 text-center">🧵</div>
+                  <h3 class="text-xl font-bold mb-2 text-center">${item.name}</h3>
+                  <p class="product-price text-2xl font-bold text-red-500 mb-2 text-center">Loading...</p>
+                  <p class="text-sm text-gray-400 text-center ${item.stock < 3 ? 'text-orange-500' : ''}">${item.stock} in stock</p>
+                </div>
+              `).join('')}
+            </div>
+          `}
+        </div>
+      `;
+
+      updateCardPrices();
+
+      container.querySelectorAll<HTMLElement>('.product-card').forEach(card => {
+        card.addEventListener('click', () => handleProductSelection(card, 'strings'));
+        card.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            handleProductSelection(card, 'strings');
+          }
+        });
+      });
+    }
+
+    function renderReviewStep(container: HTMLElement) {
+      const lineItems = [
+        { label: 'Head', item: state.selections.head, required: true, category: 'head' as const },
+        { label: 'Mesh', item: state.selections.mesh, skipped: state.skipped.mesh, category: 'mesh' as const },
+        { label: 'Strings', item: state.selections.strings, skipped: state.skipped.strings, category: 'strings' as const },
+        { label: 'Professional Stringing', item: state.selections.service, required: true, mandatory: true, category: 'service' as const }
+      ];
+
+      const subtotal = lineItems.reduce((sum, line) => {
+        if (line.item && !line.skipped) {
+          return sum + line.item.price;
+        }
+        return sum;
+      }, 0);
+
+      container.innerHTML = `
+        <div class="max-w-4xl mx-auto">
+          <h1 class="text-4xl md:text-5xl font-bold text-center mb-4">Review Your Build</h1>
+          <p class="text-center text-gray-300 text-lg mb-12">Confirm your selections before checkout</p>
+
+          <div class="bg-gray-800/50 rounded-lg p-8 border-2 border-gray-700">
+            <div class="space-y-4 mb-6">
+              ${lineItems.map(line => `
+                <div class="flex items-center justify-between py-4 border-b border-gray-700 last:border-0">
+                  <div class="flex-1">
+                    <div class="flex items-center gap-3">
+                      <span class="font-semibold text-lg">${line.label}</span>
+                      ${line.mandatory ? '<span class="text-xs bg-red-600 px-2 py-1 rounded">Required</span>' : ''}
+                    </div>
+                    ${line.item ? `
+                      <p class="text-gray-400 mt-1">${line.item.name}</p>
+                    ` : line.skipped ? `
+                      <p class="text-gray-500 italic mt-1">Not included - you're providing</p>
+                    ` : ''}
+                  </div>
+                  <div class="flex items-center gap-4">
+                    ${line.item && !line.skipped ? `
+                      <span class="text-xl font-bold text-red-500">$${(line.item.price / 100).toFixed(2)}</span>
+                    ` : ''}
+                    ${!line.mandatory ? `
+                      <button class="edit-btn px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded text-sm font-semibold transition-colors"
+                              data-step="${getStepForCategory(line.category)}">
+                        ${line.item ? 'Edit' : 'Add'}
+                      </button>
+                    ` : ''}
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+
+            <div class="border-t-2 border-gray-600 pt-6">
+              <div class="flex justify-between items-center">
+                <span class="text-2xl font-bold">Total</span>
+                <span class="text-3xl font-bold text-red-500">$${(subtotal / 100).toFixed(2)}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+
+      // Attach edit button handlers
+      container.querySelectorAll<HTMLButtonElement>('.edit-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const targetStep = parseInt(btn.dataset.step || '1');
+          state.currentStep = targetStep as 1 | 2 | 3 | 4;
+          saveState();
+          renderStep(targetStep);
+        });
+      });
+    }
+
+    function getStepForCategory(category: 'head' | 'mesh' | 'strings' | 'service'): number {
+      switch (category) {
+        case 'head': return 1;
+        case 'mesh': return 2;
+        case 'strings': return 3;
+        default: return 1;
+      }
+    }
+
+    // ========== PRODUCT SELECTION ==========
+    function handleProductSelection(card: HTMLElement, category: 'head' | 'mesh' | 'strings') {
+      console.log('🎯 Product selected:', { category, card });
+
+      const priceId = card.dataset.priceId;
+      const name = card.dataset.name;
+      const price = card.dataset.price;
+
+      if (!priceId || !name || !price) {
+        console.error('❌ Missing product data:', { priceId, name, price });
+        return;
+      }
+
+      // Define Tailwind classes for selected and unselected states
+      const selectedClasses = ['border-green-500', 'border-[3px]', 'shadow-[0_0_25px_rgba(16,185,129,0.6)]', 'scale-[1.02]'];
+      const unselectedClasses = ['border-gray-700', 'border-2', 'hover:border-red-600', 'hover:-translate-y-1'];
+
+      // Clear previous selection visually
+      card.parentElement?.querySelectorAll('.product-card').forEach(c => {
+        // Remove selected classes
+        c.classList.remove(...selectedClasses);
+        // Add unselected classes
+        c.classList.add(...unselectedClasses);
+        c.setAttribute('aria-pressed', 'false');
+
+        // Remove checkmark if exists
+        const existingCheck = c.querySelector('.checkmark-badge');
+        if (existingCheck) existingCheck.remove();
+      });
+
+      // Remove unselected classes from clicked card
+      card.classList.remove(...unselectedClasses);
+      // Add selected classes to clicked card
+      card.classList.add(...selectedClasses);
+      card.setAttribute('aria-pressed', 'true');
+
+      // Add checkmark badge
+      const checkmark = document.createElement('div');
+      checkmark.className = 'checkmark-badge absolute -top-2 -right-2 w-10 h-10 bg-green-500 text-white rounded-full flex items-center justify-center text-2xl font-bold shadow-lg z-10';
+      checkmark.style.animation = 'check-pop 0.3s cubic-bezier(0.68, -0.55, 0.27, 1.55)';
+      checkmark.textContent = '✓';
+      card.appendChild(checkmark);
+
+      console.log('✅ Selected classes added to card:', card.className);
+
+      // Update state
+      state.selections[category] = {
+        priceId,
+        name,
+        price: parseInt(price)
+      };
+
+      // Clear skip flag if previously skipped
+      if (category === 'mesh' || category === 'strings') {
+        state.skipped[category] = false;
+      }
+
+      saveState();
+
+      // Enable next button
+      updateNavigationControls(state.currentStep);
+    }
+
+    // ========== NAVIGATION ==========
+    function setupNavigationListeners() {
+      const backBtn = document.getElementById('back-btn');
+      const nextBtn = document.getElementById('next-btn');
+      const skipBtn = document.getElementById('skip-btn');
+
+      if (backBtn) {
+        backBtn.addEventListener('click', handleBack);
+      }
+
+      if (nextBtn) {
+        nextBtn.addEventListener('click', handleNext);
+      }
+
+      if (skipBtn) {
+        skipBtn.addEventListener('click', handleSkip);
+      }
+
+      // Keyboard navigation
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && state.currentStep > 1) {
+          handleBack();
+        }
+      });
+    }
+
+    function handleBack() {
+      if (state.currentStep > 1) {
+        state.currentStep = (state.currentStep - 1) as 1 | 2 | 3 | 4;
+        saveState();
+        renderStep(state.currentStep);
+      }
+    }
+
+    async function handleNext() {
+      const nextBtn = document.getElementById('next-btn') as HTMLButtonElement;
+      if (!nextBtn || nextBtn.disabled) return;
+
+      if (state.currentStep === 4) {
+        // Checkout
+        await handleCheckout();
+      } else {
+        // Advance to next step
+        state.currentStep = (state.currentStep + 1) as 1 | 2 | 3 | 4;
+        saveState();
+        renderStep(state.currentStep);
+      }
+    }
+
+    function handleSkip() {
+      if (state.currentStep === 2) {
+        state.skipped.mesh = true;
+        state.selections.mesh = null;
+        showToast("Skipped - you're bringing your own mesh", 'info');
+      } else if (state.currentStep === 3) {
+        state.skipped.strings = true;
+        state.selections.strings = null;
+        showToast("Skipped - you're bringing your own strings", 'info');
+      }
+
+      saveState();
+
+      // Advance to next step
+      state.currentStep = (state.currentStep + 1) as 1 | 2 | 3 | 4;
+      saveState();
+      renderStep(state.currentStep);
+    }
+
+    function updateNavigationControls(step: number) {
+      const backBtn = document.getElementById('back-btn');
+      const nextBtn = document.getElementById('next-btn') as HTMLButtonElement;
+      const skipBtn = document.getElementById('skip-btn');
+
+      // Back button visibility
+      if (backBtn) {
+        if (step === 1) {
+          backBtn.classList.add('hidden');
+        } else {
+          backBtn.classList.remove('hidden');
+        }
+      }
+
+      // Skip button visibility and text
+      if (skipBtn) {
+        if (step === 2) {
+          skipBtn.classList.remove('hidden');
+          skipBtn.textContent = "Skip - I'm bringing my own mesh";
+        } else if (step === 3) {
+          skipBtn.classList.remove('hidden');
+          skipBtn.textContent = "Skip - I'm bringing my own strings";
+        } else {
+          skipBtn.classList.add('hidden');
+        }
+      }
+
+      // Next button text and state
+      if (nextBtn) {
+        if (step === 4) {
+          nextBtn.textContent = 'Complete Order & Checkout';
+        } else {
+          nextBtn.textContent = 'Next Step →';
+        }
+
+        // Enable/disable based on validation
+        nextBtn.disabled = !validateStep(step);
+      }
+    }
+
+    function updateProgressBar(step: number) {
+      document.querySelectorAll('.progress-step').forEach((stepEl, index) => {
+        const stepNum = index + 1;
+        const circle = stepEl.querySelector('.step-circle');
+
+        stepEl.classList.remove('active', 'completed');
+
+        if (stepNum < step) {
+          stepEl.classList.add('completed');
+          if (circle) circle.textContent = '';
+        } else if (stepNum === step) {
+          stepEl.classList.add('active');
+          if (circle) circle.textContent = stepNum.toString();
+        } else {
+          if (circle) circle.textContent = stepNum.toString();
+        }
+      });
+    }
+
+    // ========== CHECKOUT ==========
+    async function handleCheckout() {
+      const nextBtn = document.getElementById('next-btn') as HTMLButtonElement;
+      if (!nextBtn) return;
+
+      nextBtn.disabled = true;
+      nextBtn.textContent = 'Processing...';
+
+      try {
+        // Build items array
+        const items: Array<{ priceId: string; quantity: number }> = [];
+
+        if (state.selections.head) {
+          items.push({ priceId: state.selections.head.priceId, quantity: 1 });
+        }
+
+        if (state.selections.mesh && !state.skipped.mesh) {
+          items.push({ priceId: state.selections.mesh.priceId, quantity: 1 });
+        }
+
+        if (state.selections.strings && !state.skipped.strings) {
+          items.push({ priceId: state.selections.strings.priceId, quantity: 1 });
+        }
+
+        // ALWAYS include service
+        items.push({ priceId: state.selections.service.priceId, quantity: 1 });
+
+        // Validate minimum (head + service)
+        if (items.length < 2) {
+          throw new Error('Invalid build: must include head and stringing service');
+        }
+
+        // Call createAtomicCheckout
+        const result = await client.action(api.stripe.createAtomicCheckout, {
+          items,
+          successUrl: `${window.location.origin}/order-success?session_id={CHECKOUT_SESSION_ID}`,
+          cancelUrl: window.location.href
+        });
+
+        if (result.url) {
+          // Clear state and redirect
+          localStorage.removeItem('rlStringsBuilder');
+          window.location.href = result.url;
+        } else {
+          throw new Error('No checkout URL returned');
+        }
+      } catch (err) {
+        console.error('Checkout failed:', err);
+        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+        showToast('Checkout failed: ' + errorMessage, 'error');
+
+        nextBtn.disabled = false;
+        nextBtn.textContent = 'Complete Order & Checkout';
+      }
+    }
+
+    // ========== UTILITIES ==========
+    function showToast(message: string, type: 'info' | 'error' | 'warning' | 'success' = 'info') {
+      const bgColors = {
+        error: 'bg-red-600',
+        warning: 'bg-orange-600',
+        success: 'bg-green-600',
+        info: 'bg-blue-600'
+      };
+
+      const icons = {
+        error: '✕',
+        warning: '⚠',
+        success: '✓',
+        info: 'ℹ'
+      };
+
+      const toast = document.createElement('div');
+      toast.className = `${bgColors[type]} text-white px-6 py-3 rounded-lg shadow-lg animate-fade-in flex items-center gap-3 cursor-pointer`;
+      toast.innerHTML = `
+        <span class="text-xl">${icons[type]}</span>
+        <span>${message}</span>
+      `;
+
+      const container = document.getElementById('toast-container');
+      if (container) {
+        container.appendChild(toast);
+      }
+
+      // Auto dismiss
+      setTimeout(() => toast.remove(), 3000);
+
+      // Click to dismiss
+      toast.addEventListener('click', () => toast.remove());
+    }
+
+    function announceToScreenReader(message: string) {
+      const live = document.getElementById('aria-live');
+      if (live) {
+        live.textContent = message;
+      }
+    }
+
+    // ========== START ==========
+    console.log('📦 Builder script loaded');
+
+    if (document.readyState === 'loading') {
+      console.log('⏳ Waiting for DOMContentLoaded...');
+      document.addEventListener('DOMContentLoaded', init);
+    } else {
+      console.log('⚡ DOM already loaded, initializing immediately');
+      init();
+    }
+  </script>
+</MainLayout>

@@ -119,6 +119,7 @@ export const getOrderById = query({
       itemDescription: order.itemDescription,
       lineItems: order.lineItems,
       pickupCode: order.pickupCode,
+      stripeSessionId: order.stripeSessionId,
       droppedOffAt: order.droppedOffAt,
       completedAt: order.completedAt,
       _creationTime: order._creationTime,
@@ -164,6 +165,38 @@ export const getOrderBySessionId = query({
       itemDescription: order.itemDescription,
       lineItems: order.lineItems,
       pickupCode: order.pickupCode,
+      stripeSessionId: order.stripeSessionId,
+      droppedOffAt: order.droppedOffAt,
+      completedAt: order.completedAt,
+      _creationTime: order._creationTime,
+    };
+  },
+});
+
+// PUBLIC: Get order by pickup code for customer tracking
+export const getOrderByPickupCode = query({
+  args: { pickupCode: v.string() },
+  handler: async (ctx, args) => {
+    const order = await ctx.db
+      .query("orders")
+      .filter((q) => q.eq(q.field("pickupCode"), args.pickupCode))
+      .first();
+
+    if (!order) {
+      return null;
+    }
+
+    // Return order WITHOUT admin-only PII (phone excluded)
+    return {
+      _id: order._id,
+      customerName: order.customerName,
+      email: order.email,
+      status: order.status,
+      orderType: order.orderType,
+      itemDescription: order.itemDescription,
+      lineItems: order.lineItems,
+      pickupCode: order.pickupCode,
+      stripeSessionId: order.stripeSessionId,
       droppedOffAt: order.droppedOffAt,
       completedAt: order.completedAt,
       _creationTime: order._creationTime,

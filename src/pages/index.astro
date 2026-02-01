@@ -21,14 +21,32 @@ import MainLayout from '../layouts/MainLayout.astro';
       Bun + Astro + Convex + Tailwind + (Clerk, coming soon..) + (Stripe, coming soon..)
     </p>
 
-    <!-- Shop CTA -->
-    <div class="mt-8">
-      <a
-        href="/shop"
-        class="inline-block bg-red-800 hover:bg-red-700 text-white text-lg font-bold py-4 px-8 rounded-lg transition-all duration-300 hover:scale-105 shadow-lg"
-      >
-        🥍 Shop Equipment
-      </a>
+    <div class="grid lg:grid-cols-4 md:grid-cols-2 sm:grid-cols-2 gap-2 mt-8 mb-16">
+        <!-- Empty -->
+        <div> Shop our store 👉</div>
+
+        <!-- Shop CTA -->
+        <div>
+            <a
+                    href="/shop"
+                    class="inline-block bg-red-800 hover:bg-red-700 text-white text-lg font-bold py-4 px-8 rounded-lg transition-all duration-300 hover:scale-105 shadow-lg"
+                    >
+                    🥍 Shop Equipment
+            </a>
+        </div>
+
+        <!-- Builder CTA -->
+        <div>
+            <a
+                    href="/shop/builder"
+                    class="inline-block bg-gray-600 hover:bg-gray-400 hover:border border-rose-600 text-white text-lg font-bold py-4 px-8 rounded-lg transition-all duration-300 hover:scale-105 shadow-lg"
+                    >
+                    🏗️ Build Your Setup
+            </a>
+        </div>
+
+        <!-- Empty -->
+        <div> 👈👈 Build a custom </div>
     </div>
   </div>
 
