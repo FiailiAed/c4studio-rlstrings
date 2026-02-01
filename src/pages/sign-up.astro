@@ -1,0 +1,42 @@
+---
+import MainLayout from '../layouts/MainLayout.astro';
+import { SignUp as ClerkSignUp } from '@clerk/astro/components';
+---
+
+<MainLayout title="Sign Up - RL Strings">
+  <div class="max-w-md mx-auto">
+    <h1 class="text-4xl font-bold mb-8 text-center">Sign Up</h1>
+
+    <div class="bg-white/5 backdrop-blur-lg rounded-2xl p-8">
+      <ClerkSignUp
+        routing="path"
+        path="/sign-up"
+        signInUrl="/sign-in"
+        afterSignUpUrl="/"
+        appearance={{
+          elements: {
+            rootBox: "w-full",
+            card: "bg-transparent shadow-none",
+            headerTitle: "text-white",
+            headerSubtitle: "text-gray-400",
+            socialButtonsBlockButton: "bg-white/10 hover:bg-white/20 text-white border-white/20",
+            formButtonPrimary: "bg-red-700 hover:bg-red-800",
+            footerActionLink: "text-red-400 hover:text-red-300",
+            formFieldLabel: "text-gray-300",
+            formFieldInput: "bg-white/10 border-white/20 text-white",
+            identityPreviewText: "text-white",
+            formFieldInputShowPasswordButton: "text-gray-400 hover:text-white",
+          },
+          variables: {
+            colorPrimary: "#b91c1c",
+            colorBackground: "transparent",
+            colorText: "#ffffff",
+            colorTextSecondary: "#d1d5db",
+            colorInputBackground: "rgba(255, 255, 255, 0.1)",
+            colorInputText: "#ffffff",
+          }
+        }}
+      />
+    </div>
+  </div>
+</MainLayout>

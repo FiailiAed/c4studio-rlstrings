@@ -1,5 +1,5 @@
 ---
-import '../../styles/global.css';
+import MainLayout from '../../layouts/MainLayout.astro';
 import { getConvexClient } from '../../lib/convex';
 import { api } from '../../../convex/_generated/api';
 
@@ -59,214 +59,201 @@ const stripePriceMap = new Map(
 );
 ---
 
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width" />
-    <title>Stripe Debug - RL Strings Internal</title>
-  </head>
-  <body class="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
-    <main class="container mx-auto px-4 py-16 max-w-7xl">
-      <!-- Header -->
-      <div class="mb-8">
-        <div class="flex items-center justify-between">
-          <h1 class="text-4xl font-bold text-white">Stripe Debug Panel</h1>
-          <span class="bg-red-500 text-white px-4 py-2 rounded-full text-sm font-bold">
-            ADMIN ONLY - TODD
-          </span>
-        </div>
-        <p class="text-gray-400 mt-2">Internal diagnostics for Stripe/Convex synchronization</p>
+<MainLayout title="Stripe Debug Panel - Admin">
+  <div class="max-w-7xl mx-auto">
+    <!-- Header -->
+    <div class="mb-8">
+      <h1 class="text-4xl font-bold text-white">Stripe Debug Panel</h1>
+      <p class="text-gray-400 mt-2">Internal diagnostics for Stripe/Convex synchronization</p>
+    </div>
+
+    {authError && (
+      <div class="bg-red-500/10 border border-red-500 rounded-lg p-4 text-red-400 mb-8">
+        <p class="font-bold">Authentication Error</p>
+        <p>Failed to load debug data. Please check your permissions.</p>
       </div>
+    )}
 
-      {authError && (
-        <div class="bg-red-500/10 border border-red-500 rounded-lg p-4 text-red-400 mb-8">
-          <p class="font-bold">Authentication Error</p>
-          <p>Failed to load debug data. Please check your permissions.</p>
-        </div>
-      )}
+    <!-- Inventory Comparison Table -->
+    <div class="bg-white/5 backdrop-blur-lg rounded-2xl p-8 mb-8">
+      <h2 class="text-2xl font-bold text-white mb-6">Inventory Comparison</h2>
 
-      <!-- Inventory Comparison Table -->
-      <div class="bg-white/5 backdrop-blur-lg rounded-2xl p-8 mb-8">
-        <h2 class="text-2xl font-bold text-white mb-6">Inventory Comparison</h2>
+      <div class="overflow-x-auto">
+        <table class="w-full text-white">
+          <thead>
+            <tr class="border-b border-white/10">
+              <th class="text-left p-3 text-gray-400">Convex ID</th>
+              <th class="text-left p-3 text-gray-400">Product Name</th>
+              <th class="text-left p-3 text-gray-400">Stripe Price ID</th>
+              <th class="text-left p-3 text-gray-400">Stock</th>
+              <th class="text-left p-3 text-gray-400">Category</th>
+              <th class="text-left p-3 text-gray-400">Stripe Amount</th>
+              <th class="text-left p-3 text-gray-400">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {inventoryComparison.map((item) => {
+              const stripeMatch = stripePriceMap.get(item.priceId);
+              const rowClass = stripeMatch?.active
+                ? 'bg-green-500/10'
+                : stripeMatch
+                  ? 'bg-yellow-500/10'
+                  : 'bg-red-500/10';
 
-        <div class="overflow-x-auto">
-          <table class="w-full text-white">
-            <thead>
-              <tr class="border-b border-white/10">
-                <th class="text-left p-3 text-gray-400">Convex ID</th>
-                <th class="text-left p-3 text-gray-400">Product Name</th>
-                <th class="text-left p-3 text-gray-400">Stripe Price ID</th>
-                <th class="text-left p-3 text-gray-400">Stock</th>
-                <th class="text-left p-3 text-gray-400">Category</th>
-                <th class="text-left p-3 text-gray-400">Stripe Amount</th>
-                <th class="text-left p-3 text-gray-400">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {inventoryComparison.map((item) => {
-                const stripeMatch = stripePriceMap.get(item.priceId);
-                const rowClass = stripeMatch?.active
-                  ? 'bg-green-500/10'
-                  : stripeMatch
-                    ? 'bg-yellow-500/10'
-                    : 'bg-red-500/10';
-
-                return (
-                  <tr class={`border-b border-white/5 ${rowClass}`}>
-                    <td class="p-3 font-mono text-xs">{item.convexId}</td>
-                    <td class="p-3">{item.name}</td>
-                    <td class="p-3 font-mono text-xs">{item.priceId}</td>
-                    <td class="p-3">{item.stock}</td>
-                    <td class="p-3 capitalize">{item.category}</td>
-                    <td class="p-3">
-                      {stripeMatch
-                        ? `$${(stripeMatch.amount / 100).toFixed(2)}`
-                        : <span class="text-red-400">Not Found</span>}
-                    </td>
-                    <td class="p-3">
-                      {stripeMatch?.active
-                        ? <span class="text-green-400">✓ Active</span>
-                        : stripeMatch
-                          ? <span class="text-yellow-400">⚠ Inactive</span>
-                          : <span class="text-red-400">✗ Missing</span>}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+              return (
+                <tr class={`border-b border-white/5 ${rowClass}`}>
+                  <td class="p-3 font-mono text-xs">{item.convexId}</td>
+                  <td class="p-3">{item.name}</td>
+                  <td class="p-3 font-mono text-xs">{item.priceId}</td>
+                  <td class="p-3">{item.stock}</td>
+                  <td class="p-3 capitalize">{item.category}</td>
+                  <td class="p-3">
+                    {stripeMatch
+                      ? `$${(stripeMatch.amount / 100).toFixed(2)}`
+                      : <span class="text-red-400">Not Found</span>}
+                  </td>
+                  <td class="p-3">
+                    {stripeMatch?.active
+                      ? <span class="text-green-400">✓ Active</span>
+                      : stripeMatch
+                        ? <span class="text-yellow-400">⚠ Inactive</span>
+                        : <span class="text-red-400">✗ Missing</span>}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
+    </div>
 
-      <!-- Webhook Metadata -->
-      <div class="bg-white/5 backdrop-blur-lg rounded-2xl p-8 mb-8">
-        <h2 class="text-2xl font-bold text-white mb-6">Most Recent Order - Webhook Metadata</h2>
+    <!-- Webhook Metadata -->
+    <div class="bg-white/5 backdrop-blur-lg rounded-2xl p-8 mb-8">
+      <h2 class="text-2xl font-bold text-white mb-6">Most Recent Order - Webhook Metadata</h2>
 
-        {mostRecentOrder ? (
-          <div>
-            <div class="mb-4 text-white">
-              <p><span class="text-gray-400">Order ID:</span> {mostRecentOrder._id}</p>
-              <p><span class="text-gray-400">Customer:</span> {mostRecentOrder.customerName}</p>
-              <p><span class="text-gray-400">Session ID:</span> {mostRecentOrder.stripeSessionId}</p>
+      {mostRecentOrder ? (
+        <div>
+          <div class="mb-4 text-white">
+            <p><span class="text-gray-400">Order ID:</span> {mostRecentOrder._id}</p>
+            <p><span class="text-gray-400">Customer:</span> {mostRecentOrder.customerName}</p>
+            <p><span class="text-gray-400">Session ID:</span> {mostRecentOrder.stripeSessionId}</p>
+          </div>
+
+          {webhookMetadata?.success ? (
+            <pre class="bg-black/50 rounded-lg p-4 overflow-auto max-h-96 text-green-400 text-xs font-mono">
+              {JSON.stringify(webhookMetadata.session, null, 2)}
+            </pre>
+          ) : (
+            <div class="bg-red-500/10 border border-red-500 rounded-lg p-4 text-red-400">
+              <p class="font-bold">Error fetching session:</p>
+              <p>{webhookMetadata?.error}</p>
+              <p class="text-xs mt-2">Session ID: {webhookMetadata?.sessionId}</p>
             </div>
+          )}
+        </div>
+      ) : (
+        <p class="text-gray-400">No orders found. Webhook metadata will appear after the first order.</p>
+      )}
+    </div>
 
-            {webhookMetadata?.success ? (
-              <pre class="bg-black/50 rounded-lg p-4 overflow-auto max-h-96 text-green-400 text-xs font-mono">
-                {JSON.stringify(webhookMetadata.session, null, 2)}
-              </pre>
-            ) : (
-              <div class="bg-red-500/10 border border-red-500 rounded-lg p-4 text-red-400">
-                <p class="font-bold">Error fetching session:</p>
-                <p>{webhookMetadata?.error}</p>
-                <p class="text-xs mt-2">Session ID: {webhookMetadata?.sessionId}</p>
-              </div>
-            )}
-          </div>
-        ) : (
-          <p class="text-gray-400">No orders found. Webhook metadata will appear after the first order.</p>
-        )}
-      </div>
+    <!-- Ping Stripe Button -->
+    <div class="bg-white/5 backdrop-blur-lg rounded-2xl p-8">
+      <h2 class="text-2xl font-bold text-white mb-6">Stripe API Connection Test</h2>
 
-      <!-- Ping Stripe Button -->
-      <div class="bg-white/5 backdrop-blur-lg rounded-2xl p-8">
-        <h2 class="text-2xl font-bold text-white mb-6">Stripe API Connection Test</h2>
+      <button
+        id="ping-stripe-btn"
+        class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-lg transition-colors"
+      >
+        Ping Stripe API
+      </button>
 
-        <button
-          id="ping-stripe-btn"
-          class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-lg transition-colors"
-        >
-          Ping Stripe API
-        </button>
-
-        <div id="ping-result" class="mt-4 hidden">
-          <div id="ping-success" class="bg-green-500/10 border border-green-500 rounded-lg p-4 text-green-400 hidden">
-            <p class="font-bold">✓ Connected to Stripe</p>
-            <p id="ping-account-name" class="mt-2"></p>
-            <p id="ping-account-id" class="text-xs mt-1"></p>
-          </div>
-          <div id="ping-error" class="bg-red-500/10 border border-red-500 rounded-lg p-4 text-red-400 hidden">
-            <p class="font-bold">✗ Connection Failed</p>
-            <p id="ping-error-message" class="mt-2"></p>
-          </div>
+      <div id="ping-result" class="mt-4 hidden">
+        <div id="ping-success" class="bg-green-500/10 border border-green-500 rounded-lg p-4 text-green-400 hidden">
+          <p class="font-bold">✓ Connected to Stripe</p>
+          <p id="ping-account-name" class="mt-2"></p>
+          <p id="ping-account-id" class="text-xs mt-1"></p>
+        </div>
+        <div id="ping-error" class="bg-red-500/10 border border-red-500 rounded-lg p-4 text-red-400 hidden">
+          <p class="font-bold">✗ Connection Failed</p>
+          <p id="ping-error-message" class="mt-2"></p>
         </div>
       </div>
-    </main>
+    </div>
+  </div>
 
-    <script>
-      import { ConvexClient } from "convex/browser";
-      import { api } from "../../../convex/_generated/api";
-      import { Clerk } from '@clerk/clerk-js';
+  <script>
+    import { ConvexClient } from "convex/browser";
+    import { api } from "../../../convex/_generated/api";
+    import { Clerk } from '@clerk/clerk-js';
 
-      const convexUrl = import.meta.env.PUBLIC_CONVEX_URL;
-      const clerkPublishableKey = import.meta.env.PUBLIC_CLERK_PUBLISHABLE_KEY;
+    const convexUrl = import.meta.env.PUBLIC_CONVEX_URL;
+    const clerkPublishableKey = import.meta.env.PUBLIC_CLERK_PUBLISHABLE_KEY;
 
-      const client = new ConvexClient(convexUrl);
-      let clerkInstance: Clerk | null = null;
+    const client = new ConvexClient(convexUrl);
+    let clerkInstance: Clerk | null = null;
 
-      // Initialize Clerk
-      async function initClerk() {
-        if (!clerkInstance) {
-          clerkInstance = new Clerk(clerkPublishableKey);
-          await clerkInstance.load();
-        }
-        return clerkInstance;
+    // Initialize Clerk
+    async function initClerk() {
+      if (!clerkInstance) {
+        clerkInstance = new Clerk(clerkPublishableKey);
+        await clerkInstance.load();
       }
+      return clerkInstance;
+    }
 
-      // Set up authenticated Convex client
-      async function setupAuthenticatedClient() {
-        const clerk = await initClerk();
+    // Set up authenticated Convex client
+    async function setupAuthenticatedClient() {
+      const clerk = await initClerk();
 
-        // Set auth on the Convex client
-        client.setAuth(async () => {
-          const token = await clerk.session?.getToken({ template: "convex" });
-          return token ?? null;
-        });
-      }
-
-      // Initialize authentication when page loads
-      setupAuthenticatedClient();
-
-      const btn = document.getElementById('ping-stripe-btn') as HTMLButtonElement | null;
-      const resultDiv = document.getElementById('ping-result');
-      const successDiv = document.getElementById('ping-success');
-      const errorDiv = document.getElementById('ping-error');
-      const accountNameEl = document.getElementById('ping-account-name');
-      const accountIdEl = document.getElementById('ping-account-id');
-      const errorMessageEl = document.getElementById('ping-error-message');
-
-      btn?.addEventListener('click', async () => {
-        if (!btn) return;
-
-        btn.disabled = true;
-        btn.textContent = 'Pinging...';
-
-        resultDiv?.classList.remove('hidden');
-        successDiv?.classList.add('hidden');
-        errorDiv?.classList.add('hidden');
-
-        try {
-          // Ensure auth is set up before making the call
-          await setupAuthenticatedClient();
-
-          const result = await client.action(api.stripe.debugPingStripe, {});
-
-          if (accountNameEl && accountIdEl) {
-            accountNameEl.textContent = `Account: ${result.accountName}`;
-            accountIdEl.textContent = `ID: ${result.accountId}`;
-          }
-
-          successDiv?.classList.remove('hidden');
-        } catch (err: any) {
-          if (errorMessageEl) {
-            errorMessageEl.textContent = err.message;
-          }
-          errorDiv?.classList.remove('hidden');
-        } finally {
-          btn.disabled = false;
-          btn.textContent = 'Ping Stripe API';
-        }
+      // Set auth on the Convex client
+      client.setAuth(async () => {
+        const token = await clerk.session?.getToken({ template: "convex" });
+        return token ?? null;
       });
-    </script>
-  </body>
-</html>
+    }
+
+    // Initialize authentication when page loads
+    setupAuthenticatedClient();
+
+    const btn = document.getElementById('ping-stripe-btn') as HTMLButtonElement | null;
+    const resultDiv = document.getElementById('ping-result');
+    const successDiv = document.getElementById('ping-success');
+    const errorDiv = document.getElementById('ping-error');
+    const accountNameEl = document.getElementById('ping-account-name');
+    const accountIdEl = document.getElementById('ping-account-id');
+    const errorMessageEl = document.getElementById('ping-error-message');
+
+    btn?.addEventListener('click', async () => {
+      if (!btn) return;
+
+      btn.disabled = true;
+      btn.textContent = 'Pinging...';
+
+      resultDiv?.classList.remove('hidden');
+      successDiv?.classList.add('hidden');
+      errorDiv?.classList.add('hidden');
+
+      try {
+        // Ensure auth is set up before making the call
+        await setupAuthenticatedClient();
+
+        const result = await client.action(api.stripe.debugPingStripe, {});
+
+        if (accountNameEl && accountIdEl) {
+          accountNameEl.textContent = `Account: ${result.accountName}`;
+          accountIdEl.textContent = `ID: ${result.accountId}`;
+        }
+
+        successDiv?.classList.remove('hidden');
+      } catch (err: any) {
+        if (errorMessageEl) {
+          errorMessageEl.textContent = err.message;
+        }
+        errorDiv?.classList.remove('hidden');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Ping Stripe API';
+      }
+    });
+  </script>
+</MainLayout>

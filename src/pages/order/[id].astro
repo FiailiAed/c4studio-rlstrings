@@ -1,6 +1,5 @@
 ---
-import '../../styles/global.css';
-
+import MainLayout from '../../layouts/MainLayout.astro';
 import { getConvexClient } from '../../lib/convex';
 import { api } from '../../../convex/_generated/api';
 
@@ -22,96 +21,88 @@ const progressSteps = [
   { step: 6, label: "Stringing Complete", active: ["ready_for_pickup", "completed"].includes(order.status) },
   { step: 7, label: "Waiting at Stellar", active: ["ready_for_pickup", "completed"].includes(order.status) },
   { step: 8, label: "Customer Picked Up", active: order.status === "completed" },
-  { step: 9, label: "Customer Review Left", active: false }, // Future feature
+  { step: 9, label: "Customer Review Left", active: false },
   { step: 10, label: "Order Complete", active: order.status === "completed" },
 ];
 
 const currentStep = progressSteps.filter(s => s.active).length;
 ---
 
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width" />
-    <title>Order {order.pickupCode} - RL Strings</title>
-  </head>
-  <body class="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
-    <main class="container mx-auto px-4 py-16 max-w-4xl">
-      <!-- Header -->
-      <h1 class="text-4xl font-bold text-white mb-8 text-center">
-        Order Tracking
-      </h1>
+<MainLayout title={`Order ${order.pickupCode} - RL Strings`}>
+  <div class="max-w-4xl mx-auto">
+    <!-- Header -->
+    <h1 class="text-4xl font-bold text-white mb-8 text-center">
+      Order Tracking
+    </h1>
 
-      <!-- Progress Indicator -->
-      <div class="bg-white/5 backdrop-blur-lg rounded-2xl p-8 mb-8">
-        <div class="grid grid-cols-5 gap-2 mb-6">
-          {progressSteps.map((step) => (
-            <div class={`text-center ${step.active ? 'text-green-400' : 'text-gray-500'}`}>
-              <div class={`w-10 h-10 mx-auto rounded-full flex items-center justify-center mb-2 text-sm font-bold ${
-                step.active ? 'bg-green-500 text-white' : 'bg-gray-700'
-              }`}>
-                {step.step}
-              </div>
-              <p class="text-xs leading-tight">{step.label}</p>
+    <!-- Progress Indicator -->
+    <div class="bg-white/5 backdrop-blur-lg rounded-2xl p-8 mb-8">
+      <div class="grid grid-cols-5 gap-2 mb-6">
+        {progressSteps.map((step) => (
+          <div class={`text-center ${step.active ? 'text-green-400' : 'text-gray-500'}`}>
+            <div class={`w-10 h-10 mx-auto rounded-full flex items-center justify-center mb-2 text-sm font-bold ${
+              step.active ? 'bg-green-500 text-white' : 'bg-gray-700'
+            }`}>
+              {step.step}
             </div>
-          ))}
-        </div>
-
-        <!-- Progress Bar -->
-        <div class="w-full bg-gray-700 h-3 rounded-full overflow-hidden">
-          <div
-            class="bg-green-500 h-3 rounded-full transition-all duration-500"
-            style={`width: ${(currentStep / progressSteps.length) * 100}%`}
-          />
-        </div>
+            <p class="text-xs leading-tight">{step.label}</p>
+          </div>
+        ))}
       </div>
 
-      <!-- Order Details -->
-      <div class="bg-white/5 backdrop-blur-lg rounded-2xl p-8">
-        <h2 class="text-2xl font-bold text-white mb-6">Order Information</h2>
-
-        <div class="grid md:grid-cols-2 gap-6 text-white">
-          <div>
-            <p class="text-gray-400 text-sm mb-1">Pickup Code</p>
-            <p class="text-4xl font-bold text-purple-400">{order.pickupCode}</p>
-          </div>
-
-          <div>
-            <p class="text-gray-400 text-sm mb-1">Customer Name</p>
-            <p class="text-xl">{order.customerName}</p>
-          </div>
-
-          <div>
-            <p class="text-gray-400 text-sm mb-1">Email</p>
-            <p class="text-xl break-all">{order.email}</p>
-          </div>
-
-          <div>
-            <p class="text-gray-400 text-sm mb-1">Order Type</p>
-            <p class="text-xl capitalize">{order.orderType}</p>
-          </div>
-
-          <div class="md:col-span-2">
-            <p class="text-gray-400 text-sm mb-1">Item Description</p>
-            <p class="text-xl">{order.itemDescription}</p>
-          </div>
-
-          {order.droppedOffAt && (
-            <div>
-              <p class="text-gray-400 text-sm mb-1">Dropped Off</p>
-              <p class="text-lg">{new Date(order.droppedOffAt).toLocaleString()}</p>
-            </div>
-          )}
-
-          {order.completedAt && (
-            <div>
-              <p class="text-gray-400 text-sm mb-1">Completed</p>
-              <p class="text-lg">{new Date(order.completedAt).toLocaleString()}</p>
-            </div>
-          )}
-        </div>
+      <!-- Progress Bar -->
+      <div class="w-full bg-gray-700 h-3 rounded-full overflow-hidden">
+        <div
+          class="bg-green-500 h-3 rounded-full transition-all duration-500"
+          style={`width: ${(currentStep / progressSteps.length) * 100}%`}
+        />
       </div>
-    </main>
-  </body>
-</html>
+    </div>
+
+    <!-- Order Details -->
+    <div class="bg-white/5 backdrop-blur-lg rounded-2xl p-8">
+      <h2 class="text-2xl font-bold text-white mb-6">Order Information</h2>
+
+      <div class="grid md:grid-cols-2 gap-6 text-white">
+        <div>
+          <p class="text-gray-400 text-sm mb-1">Pickup Code</p>
+          <p class="text-4xl font-bold text-purple-400">{order.pickupCode}</p>
+        </div>
+
+        <div>
+          <p class="text-gray-400 text-sm mb-1">Customer Name</p>
+          <p class="text-xl">{order.customerName}</p>
+        </div>
+
+        <div>
+          <p class="text-gray-400 text-sm mb-1">Email</p>
+          <p class="text-xl break-all">{order.email}</p>
+        </div>
+
+        <div>
+          <p class="text-gray-400 text-sm mb-1">Order Type</p>
+          <p class="text-xl capitalize">{order.orderType}</p>
+        </div>
+
+        <div class="md:col-span-2">
+          <p class="text-gray-400 text-sm mb-1">Item Description</p>
+          <p class="text-xl">{order.itemDescription}</p>
+        </div>
+
+        {order.droppedOffAt && (
+          <div>
+            <p class="text-gray-400 text-sm mb-1">Dropped Off</p>
+            <p class="text-lg">{new Date(order.droppedOffAt).toLocaleString()}</p>
+          </div>
+        )}
+
+        {order.completedAt && (
+          <div>
+            <p class="text-gray-400 text-sm mb-1">Completed</p>
+            <p class="text-lg">{new Date(order.completedAt).toLocaleString()}</p>
+          </div>
+        )}
+      </div>
+    </div>
+  </div>
+</MainLayout>
