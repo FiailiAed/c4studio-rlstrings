@@ -1,10 +1,13 @@
 import { v } from "convex/values";
 import { mutation, query, internalMutation } from "./_generated/server";
+import { requireAdmin, requireAuth } from "./auth";
 
 // TODD'S VIEW: Get all orders that need work
 export const getActiveOrders = query({
   handler: async (ctx) => {
-    // In V2, we add a check here to ensure only 'Todd' can see this via Clerk
+    const identity = await ctx.auth.getUserIdentity();
+    requireAdmin(identity); // Only Todd can see all orders with PII
+
     return await ctx.db
       .query("orders")
       .withIndex("by_status")
@@ -15,18 +18,27 @@ export const getActiveOrders = query({
 
 // THE HANDSHAKE: Update status when parent scans QR
 export const updateOrderStatus = mutation({
-  args: { 
-    orderId: v.id("orders"), 
+  args: {
+    orderId: v.id("orders"),
     newStatus: v.union(
-      v.literal("dropped_off"), 
-      v.literal("in_progress"), 
-      v.literal("ready_for_pickup"), 
+      v.literal("dropped_off"),
+      v.literal("in_progress"),
+      v.literal("ready_for_pickup"),
       v.literal("completed")
-    ) 
+    )
   },
   handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
     const { orderId, newStatus } = args;
-    
+
+    // Customer can set "dropped_off" (QR scan at Stellar)
+    if (newStatus === "dropped_off") {
+      requireAuth(identity); // Any authenticated user
+    } else {
+      // Admin-only status changes (in_progress, ready_for_pickup, completed)
+      requireAdmin(identity);
+    }
+
     const timestamp = Date.now();
     const patch: any = { status: newStatus };
 
@@ -34,7 +46,7 @@ export const updateOrderStatus = mutation({
     if (newStatus === "completed") patch.completedAt = timestamp;
 
     await ctx.db.patch(orderId, patch);
-    
+
     // LFG: This is where you'd trigger a Resend email to the parent
     return { success: true };
   },
@@ -69,5 +81,31 @@ export const createOrder = internalMutation({
     });
 
     return orderId;
+  },
+});
+
+// PUBLIC: Get order by ID for customer tracking page
+export const getOrderById = query({
+  args: { orderId: v.id("orders") },
+  handler: async (ctx, args) => {
+    const order = await ctx.db.get(args.orderId);
+
+    if (!order) {
+      return null;
+    }
+
+    // Return order WITHOUT admin-only PII (phone excluded)
+    return {
+      _id: order._id,
+      customerName: order.customerName,
+      email: order.email,
+      status: order.status,
+      orderType: order.orderType,
+      itemDescription: order.itemDescription,
+      pickupCode: order.pickupCode,
+      droppedOffAt: order.droppedOffAt,
+      completedAt: order.completedAt,
+      _creationTime: order._creationTime,
+    };
   },
 });

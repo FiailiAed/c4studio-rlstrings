@@ -34,3 +34,13 @@ coverage/
 
 # Misc
 *.local
+
+# Claude Docs
+claude.md
+ENV_SETUP.md
+IMPLEMENTATION_SUMMARY.md
+
+# Claude Skills
+todd-proof-ui.md
+secure-mutation.md
+dev-admin-testing-ui.md
