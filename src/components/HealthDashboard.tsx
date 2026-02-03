@@ -18,7 +18,7 @@ interface HealthDashboardProps {
 interface RevealedSecrets {
   [key: string]: {
     value: string;
-    timer?: NodeJS.Timeout;
+    timer?: number;
   };
 }
 
