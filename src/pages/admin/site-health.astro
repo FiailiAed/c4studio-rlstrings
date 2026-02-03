@@ -1,0 +1,89 @@
+---
+import MainLayout from '../../layouts/MainLayout.astro';
+import HealthDashboard from '../../components/HealthDashboard';
+import { getAllHealthStatus } from '../../lib/health-checks';
+
+// Get authentication from Clerk middleware
+const auth = Astro.locals.auth();
+const userId = auth?.userId;
+
+// Run initial health checks server-side
+const healthStatus = await getAllHealthStatus(userId);
+---
+
+<MainLayout
+  title="RL Strings | Site Health Dashboard"
+  description="System health monitoring and diagnostics for RL Strings platform"
+>
+  <style>
+    .glass-card {
+      background: rgba(15, 15, 15, 0.7);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    .status-pulse {
+      animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    .radial-glow-top-left {
+      position: absolute;
+      top: -20%;
+      left: -10%;
+      width: 50%;
+      height: 50%;
+      background: radial-gradient(circle, rgba(239, 68, 68, 0.15) 0%, transparent 70%);
+      filter: blur(80px);
+    }
+    .radial-glow-bottom-right {
+      position: absolute;
+      bottom: -20%;
+      right: -10%;
+      width: 50%;
+      height: 50%;
+      background: radial-gradient(circle, rgba(239, 68, 68, 0.1) 0%, transparent 70%);
+      filter: blur(80px);
+    }
+  </style>
+
+  <div class="max-w-7xl mx-auto">
+    <!-- Header -->
+    <header class="mb-10">
+      <div class="flex items-center gap-2 mb-2">
+        <span class="text-xs font-black uppercase tracking-[0.3em] text-red-500">System Diagnostics</span>
+        <span class="text-neutral-700">/</span>
+        <span class="text-xs font-bold text-neutral-400 uppercase tracking-widest">Admin Portal</span>
+      </div>
+      <h1 class="text-4xl font-black uppercase italic tracking-tighter">
+        Site <span class="text-neutral-500">Health.</span>
+      </h1>
+      <p class="text-neutral-500 text-sm mt-2">
+        Real-time monitoring of all external services and infrastructure
+      </p>
+    </header>
+
+    <!-- Health Dashboard React Component -->
+    <HealthDashboard client:load initialStatus={healthStatus} />
+
+    <!-- Additional Info Cards -->
+    <div class="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="glass-card p-6 rounded-3xl bg-red-950/10 border-red-500/20">
+        <h4 class="text-xs font-black uppercase text-red-500 mb-2">Security Notice</h4>
+        <p class="text-xs text-neutral-400 mb-4 leading-relaxed">
+          Secret keys are masked by default. Click "Reveal" to temporarily view full keys (auto-hides after 10 seconds).
+          All reveal actions require authentication and are logged.
+        </p>
+      </div>
+
+      <div class="glass-card p-6 rounded-3xl">
+        <h4 class="text-xs font-black uppercase text-neutral-400 mb-2">Health Check Details</h4>
+        <p class="text-xs text-neutral-400 mb-4 leading-relaxed">
+          Health checks run on page load and can be manually refreshed. Each service is tested with a lightweight API call
+          to verify connectivity and authentication status.
+        </p>
+      </div>
+    </div>
+  </div>
+</MainLayout>
