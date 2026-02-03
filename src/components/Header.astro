@@ -1,0 +1,123 @@
+---
+import { SignedIn, SignedOut, UserButton } from '@clerk/astro/components';
+
+const { pathname } = Astro.url;
+
+const navLinks = [
+  { href: '/shop/builder', label: 'The Builder' },
+  { href: '/admin', label: 'Admin' },
+  { href: '/order', label: 'Order' },
+];
+
+const isActive = (href: string) => pathname === href;
+---
+
+<header class="fixed top-0 left-0 right-0 z-50 p-4">
+  <div class="glass-dark rounded-2xl px-6 py-4 shadow-lg shadow-red-900/10">
+    <div class="flex items-center justify-between gap-6">
+      <!-- Logo/Brand (Left) -->
+      <a href="/" class="flex items-center gap-3 shrink-0 group">
+        <div class="w-10 h-10 bg-red-600 rounded flex items-center justify-center transition-transform group-hover:scale-105">
+          <svg class="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <circle cx="12" cy="12" r="10" />
+            <line x1="12" y1="2" x2="12" y2="22" />
+            <line x1="2" y1="12" x2="22" y2="12" />
+          </svg>
+        </div>
+        <div class="hidden sm:block">
+          <h1 class="font-black italic uppercase text-lg leading-none">RL Strings</h1>
+          <p class="text-xs text-red-500">Elite Performance</p>
+        </div>
+      </a>
+
+      <!-- Desktop Navigation (Center) -->
+      <nav class="hidden md:flex items-center gap-8">
+        {navLinks.map(link => (
+          <a
+            href={link.href}
+            class={`text-sm font-semibold transition-colors ${
+              isActive(link.href)
+                ? 'text-red-500'
+                : 'text-neutral-400 hover:text-red-500'
+            }`}
+          >
+            {link.label}
+          </a>
+        ))}
+      </nav>
+
+      <!-- Auth Section (Right) -->
+      <div class="flex items-center gap-4 shrink-0">
+        <SignedOut>
+          <a
+            href="/sign-in"
+            class="flex items-center gap-2 px-5 py-2.5 bg-neutral-900 hover:bg-neutral-800 text-white font-semibold text-sm rounded-lg border border-neutral-800 hover:border-red-600/50 transition-all"
+          >
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+              <circle cx="12" cy="7" r="4" />
+            </svg>
+            Login
+          </a>
+        </SignedOut>
+
+        <SignedIn>
+          <UserButton
+            appearance={{
+              elements: {
+                avatarBox: "border-2 border-red-600/50 hover:border-red-600 transition-colors",
+                userButtonPopoverCard: "glass-dark border border-red-600/20"
+              }
+            }}
+          />
+        </SignedIn>
+
+        <!-- Mobile Menu Button -->
+        <button
+          id="mobile-menu-button"
+          class="md:hidden p-2 text-neutral-400 hover:text-red-500 transition-colors"
+          aria-label="Toggle mobile menu"
+          aria-expanded="false"
+        >
+          <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="4" x2="20" y1="12" y2="12" />
+            <line x1="4" x2="20" y1="6" y2="6" />
+            <line x1="4" x2="20" y1="18" y2="18" />
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Mobile Menu (Hidden by default) -->
+    <div id="mobile-menu" class="hidden md:hidden mt-6 pt-6 border-t border-neutral-900">
+      <nav class="flex flex-col gap-4">
+        {navLinks.map(link => (
+          <a
+            href={link.href}
+            class={`text-sm font-semibold transition-colors ${
+              isActive(link.href)
+                ? 'text-red-500'
+                : 'text-neutral-400 hover:text-red-500'
+            }`}
+          >
+            {link.label}
+          </a>
+        ))}
+      </nav>
+    </div>
+  </div>
+</header>
+
+<script>
+  // Mobile menu toggle functionality
+  const menuButton = document.getElementById('mobile-menu-button');
+  const mobileMenu = document.getElementById('mobile-menu');
+
+  if (menuButton && mobileMenu) {
+    menuButton.addEventListener('click', () => {
+      const isExpanded = menuButton.getAttribute('aria-expanded') === 'true';
+      menuButton.setAttribute('aria-expanded', (!isExpanded).toString());
+      mobileMenu.classList.toggle('hidden');
+    });
+  }
+</script>

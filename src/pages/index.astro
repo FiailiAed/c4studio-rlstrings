@@ -1,99 +1,123 @@
 ---
-// Basic Astro Setup - Sample Page
-// Import global styles (includes Tailwind)
-import '../styles/global.css';
+import MainLayout from '../layouts/MainLayout.astro';
+import { ShieldCheck, ChevronRight, Box, Grid3x3, AlignVerticalSpaceAround, Hammer, ArrowRight } from 'lucide-react';
 ---
 
-<html lang="en">
-    <head>
-        <meta charset="utf-8" />
-        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-        <meta name="viewport" content="width=device-width" />
-        <meta name="generator" content={Astro.generator} />
-        <title>BAS - Basic Astro Setup</title>
-    </head>
-    <body class="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
-        <main class="container mx-auto px-4 py-16">
-            <!-- Header -->
-            <div class="text-center mb-16">
-                <h1 class="text-5xl md:text-7xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-pink-500 to-red-500 mb-4">
-                    RL Strings, LLC
-                </h1>
-                <p class="text-xl text-gray-300 mb-2">
-                Basic Astro Setup <span class="text-purple-400">(or Bad Ass Setup 😎)</span>
-                </p>
-                <p class="text-gray-400">
-                Bun + Astro + Convex + Tailwind + (Clerk, coming soon..)
-                </p>
+<MainLayout
+  title="RL Strings | Elite Custom Lacrosse Stringing"
+  description="Stop settling for factory trash. Get the precision, consistency, and hold that elite players demand. Custom built, professionally strung."
+>
+  <!-- Hero Section -->
+  <section class="relative pt-20 pb-20 px-4">
+    <div class="max-w-4xl mx-auto text-center">
+      <!-- Elite Badge -->
+      <div class="inline-flex items-center gap-2 px-4 py-2 bg-red-950/50 border border-red-900/50 rounded-full mb-8">
+        <span class="relative flex h-3 w-3">
+          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75"></span>
+          <span class="relative inline-flex rounded-full h-3 w-3 bg-red-600"></span>
+        </span>
+        <span class="text-red-200 text-sm font-bold uppercase tracking-wider">Elite Craftsmanship by Todd Ruff</span>
+      </div>
+
+      <!-- Headline -->
+      <h1 class="text-6xl md:text-8xl font-black tracking-tighter mb-6 leading-[0.9] uppercase">
+        Stop Settling for <span class="text-transparent bg-clip-text bg-gradient-to-br from-red-500 to-red-700">Factory Trash.</span>
+      </h1>
+
+      <!-- Subheadline -->
+      <p class="text-xl text-neutral-400 mb-12 max-w-2xl mx-auto font-medium leading-relaxed">
+        Your pocket is the most important piece of equipment you own. Get the precision, consistency, and hold that elite players demand. Custom built, professionally strung.
+      </p>
+
+      <!-- CTA -->
+      <div class="flex flex-col sm:flex-row justify-center items-center gap-4">
+        <a
+          href="/shop/builder"
+          class="glow-red group relative px-8 py-5 bg-red-600 hover:bg-red-700 text-white font-black text-lg rounded-xl transition-all active:scale-[0.98] uppercase tracking-wide flex items-center gap-3 shadow-xl shadow-red-900/20 overflow-hidden"
+        >
+          <span class="relative z-10">Start Your Build</span>
+          <ChevronRight className="w-6 h-6 relative z-10 group-hover:translate-x-1 transition-transform" client:load />
+          <div class="absolute inset-0 h-full w-full scale-x-0 group-hover:scale-x-100 transition-transform origin-left bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
+        </a>
+        <p class="text-neutral-500 text-sm font-medium mt-2 sm:mt-0 flex items-center gap-1">
+          <ShieldCheck className="w-4 h-4 text-red-500" client:load />
+          100% Satisfaction Guarantee
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Elite Build Process Section -->
+  <section class="py-20 px-4 relative z-10">
+    <div class="max-w-6xl mx-auto">
+      <!-- Section Header -->
+      <div class="text-center mb-16">
+        <h2 class="text-3xl font-black uppercase tracking-tight mb-4">The Elite Build Process</h2>
+        <p class="text-neutral-400 max-w-xl mx-auto">We've simplified the process of getting a pro-level pocket. You pick the parts, we provide the elite labor.</p>
+      </div>
+
+      <!-- 4-Step Grid -->
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <!-- Step 1: Select Head -->
+        <div class="glass-dark p-8 rounded-3xl border-t-4 border-t-red-600 relative overflow-hidden group hover:-translate-y-1 transition-all duration-300">
+          <div class="absolute -right-4 -top-4 text-8xl font-black text-neutral-900/50 z-0 select-none">1</div>
+          <div class="relative z-10">
+            <div class="w-14 h-14 bg-red-900/30 rounded-xl flex items-center justify-center mb-6 border border-red-800/50 group-hover:border-red-500 transition-colors">
+              <Box className="w-8 h-8 text-red-500" client:load />
             </div>
+            <h3 class="text-xl font-bold mb-2 uppercase">Select Head</h3>
+            <p class="text-neutral-400 text-sm">Choose from top-tier unstrung heads or bring your own.</p>
+          </div>
+        </div>
 
-            <!-- Tech Stack Cards -->
-            <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
-                <!-- Bun -->
-                <div class="bg-white/5 backdrop-blur-lg rounded-2xl p-6 border border-white/10 hover:border-purple-500/50 transition-all duration-300 hover:scale-105">
-                    <div class="text-4xl mb-4">🥟</div>
-                    <h3 class="text-xl font-semibold text-white mb-2">Bun</h3>
-                    <p class="text-gray-400 text-sm">Lightning-fast JavaScript runtime & package manager</p>
-                </div>
-
-                <!-- Astro -->
-                <div class="bg-white/5 backdrop-blur-lg rounded-2xl p-6 border border-white/10 hover:border-orange-500/50 transition-all duration-300 hover:scale-105">
-                    <div class="text-4xl mb-4">🚀</div>
-                    <h3 class="text-xl font-semibold text-white mb-2">Astro</h3>
-                    <p class="text-gray-400 text-sm">The web framework for content-driven websites</p>
-                </div>
-
-                <!-- Convex -->
-                <div class="bg-white/5 backdrop-blur-lg rounded-2xl p-6 border border-white/10 hover:border-red-500/50 transition-all duration-300 hover:scale-105">
-                    <div class="text-4xl mb-4">⚡</div>
-                    <h3 class="text-xl font-semibold text-white mb-2">Convex</h3>
-                    <p class="text-gray-400 text-sm">Real-time backend with automatic caching</p>
-                </div>
-
-                <!-- Tailwind -->
-                <div class="bg-white/5 backdrop-blur-lg rounded-2xl p-6 border border-white/10 hover:border-cyan-500/50 transition-all duration-300 hover:scale-105">
-                    <div class="text-4xl mb-4">🎨</div>
-                    <h3 class="text-xl font-semibold text-white mb-2">Tailwind</h3>
-                    <p class="text-gray-400 text-sm">Utility-first CSS framework for rapid UI development</p>
-                </div>
+        <!-- Step 2: Select Mesh -->
+        <div class="glass-dark p-8 rounded-3xl border-t-4 border-t-neutral-800 relative overflow-hidden group hover:-translate-y-1 transition-all duration-300">
+          <div class="absolute -right-4 -top-4 text-8xl font-black text-neutral-900/50 z-0 select-none">2</div>
+          <div class="relative z-10">
+            <div class="w-14 h-14 bg-neutral-900/50 rounded-xl flex items-center justify-center mb-6 border border-neutral-800 group-hover:border-white/50 transition-colors">
+              <Grid3x3 className="w-8 h-8 text-white" client:load />
             </div>
+            <h3 class="text-xl font-bold mb-2 uppercase">Select Mesh</h3>
+            <p class="text-neutral-400 text-sm">Performance mesh options for the perfect feel and hold.</p>
+          </div>
+        </div>
 
-            <!-- Getting Started -->
-            <div class="bg-white/5 backdrop-blur-lg rounded-2xl p-8 border border-white/10 max-w-2xl mx-auto">
-                <h2 class="text-2xl font-bold text-white mb-6">🚀 Getting Started</h2>
-
-                <div class="space-y-4">
-                    <div class="flex items-start gap-4">
-                        <span class="shrink-0 w-8 h-8 bg-purple-500/20 rounded-full flex items-center justify-center text-purple-400 font-bold">1</span>
-                        <div>
-                            <p class="text-white font-medium">Set up Convex (in a new terminal)</p>
-                            <code class="text-sm text-gray-400 bg-black/30 px-2 py-1 rounded">bunx convex dev</code>
-                        </div>
-                    </div>
-
-                    <div class="flex items-start gap-4">
-                        <span class="shrink-0 w-8 h-8 bg-purple-500/20 rounded-full flex items-center justify-center text-purple-400 font-bold">2</span>
-                        <div>
-                            <p class="text-white font-medium">Copy the deployment URL to .env.local</p>
-                            <code class="text-sm text-gray-400 bg-black/30 px-2 py-1 rounded">PUBLIC_CONVEX_URL=https://...</code>
-                        </div>
-                    </div>
-
-                    <div class="flex items-start gap-4">
-                        <span class="shrink-0 w-8 h-8 bg-purple-500/20 rounded-full flex items-center justify-center text-purple-400 font-bold">3</span>
-                        <div>
-                            <p class="text-white font-medium">Start developing</p>
-                            <code class="text-sm text-gray-400 bg-black/30 px-2 py-1 rounded">bun run dev</code>
-                        </div>
-                    </div>
-                </div>
+        <!-- Step 3: Select Strings -->
+        <div class="glass-dark p-8 rounded-3xl border-t-4 border-t-neutral-800 relative overflow-hidden group hover:-translate-y-1 transition-all duration-300">
+          <div class="absolute -right-4 -top-4 text-8xl font-black text-neutral-900/50 z-0 select-none">3</div>
+          <div class="relative z-10">
+            <div class="w-14 h-14 bg-neutral-900/50 rounded-xl flex items-center justify-center mb-6 border border-neutral-800 group-hover:border-white/50 transition-colors">
+              <AlignVerticalSpaceAround className="w-8 h-8 text-white" client:load />
             </div>
+            <h3 class="text-xl font-bold mb-2 uppercase">Select Strings</h3>
+            <p class="text-neutral-400 text-sm">Customize your colors for sidewalls and shooters.</p>
+          </div>
+        </div>
 
-            <!-- Footer -->
-            <footer class="text-center mt-16 text-gray-500 text-sm">
-                <p>Built with 💜 using BAS.sh</p>
-                <p>Deployed via c4studio 🛫</p>
-            </footer>
-        </main>
-    </body>
-</html>
+        <!-- Step 4: Pro Labor -->
+        <div class="glass-dark p-8 rounded-3xl border-t-4 border-t-red-600 bg-gradient-to-b from-red-950/20 to-transparent relative overflow-hidden shadow-xl shadow-red-900/10">
+          <div class="absolute -right-4 -top-4 text-8xl font-black text-red-900/20 z-0 select-none">4</div>
+          <div class="relative z-10">
+            <div class="w-14 h-14 bg-red-600 rounded-xl flex items-center justify-center mb-6 shadow-lg shadow-red-600/30">
+              <Hammer className="w-8 h-8 text-white" client:load />
+            </div>
+            <h3 class="text-xl font-black mb-2 uppercase text-red-100">Pro Labor Included</h3>
+            <p class="text-red-200/80 text-sm font-medium">Every order includes expert stringing by Todd Ruff. <span class="underline decoration-red-500/50">Non-negotiable quality.</span></p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Final CTA Section -->
+  <section class="py-20 px-4 text-center">
+    <h2 class="text-4xl font-black uppercase mb-8">Ready to upgrade your game?</h2>
+    <a
+      href="/shop/builder"
+      class="glow-red group relative px-8 py-4 bg-red-600 hover:bg-red-700 text-white font-black text-lg rounded-xl transition-all active:scale-[0.98] uppercase tracking-wide inline-flex items-center gap-3"
+    >
+      Enter The Builder
+      <ArrowRight className="w-6 h-6 group-hover:translate-x-1 transition-transform" client:load />
+    </a>
+  </section>
+</MainLayout>

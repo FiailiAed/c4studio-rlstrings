@@ -2,6 +2,7 @@
 node_modules/
 
 # Build output
+.vercel
 dist/
 
 # Environment variables - NEVER COMMIT THESE
@@ -11,9 +12,6 @@ dist/
 
 # Astro
 .astro/
-
-# Convex generated files
-convex/_generated/
 
 # IDE
 .vscode/
@@ -34,3 +32,10 @@ coverage/
 
 # Misc
 *.local
+
+# Claude
+*claude.md
+claude_skill-*
+
+# Templates
+*TEMPLATE.html
