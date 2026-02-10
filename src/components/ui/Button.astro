@@ -1,0 +1,11 @@
+---
+// src/components/ui/Button.astro
+interface Props {
+  variant: 'primary' | 'ghost';
+  label: string;
+}
+const { variant, label } = Astro.props;
+---
+<button class={variant === 'primary' ? 'bg-brand-white text-black' : 'border border-brand-border'}>
+  {label}
+</button>

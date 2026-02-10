@@ -1,0 +1,28 @@
+<div class="space-y-8">
+  <span class="section-label">02 // Interactive Elements</span>
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    <div class="component-card group">
+      <p class="text-xs font-mono text-brand-muted mb-6">Primary Action</p>
+      <button class="w-full min-h-[56px] bg-brand-white text-brand-black font-extrabold uppercase tracking-widest hover:bg-brand-accent hover:text-white transition-all active:scale-[0.98] rounded-xl flex items-center justify-center gap-2">
+        Deploy Now
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+      </button>
+    </div>
+    <div class="component-card">
+      <p class="text-xs font-mono text-brand-muted mb-6">Ghost Secondary</p>
+      <button class="w-full min-h-[56px] border border-brand-border text-brand-white font-semibold hover:bg-white/5 transition-all rounded-xl">
+        View Documentation
+      </button>
+    </div>
+    <div class="component-card">
+      <p class="text-xs font-mono text-brand-muted mb-6">Touch-Safe (48px)</p>
+      <div class="flex gap-4">
+        {['+', 'trash'].map(icon => (
+          <button class="w-12 h-12 flex items-center justify-center bg-brand-border rounded-full hover:bg-brand-accent transition-colors text-white">
+            {icon === '+' ? '＋' : '✕'}
+          </button>
+        ))}
+      </div>
+    </div>
+  </div>
+</div>

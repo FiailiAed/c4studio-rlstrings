@@ -1,5 +1,5 @@
 ---
-import MainLayout from '../../layouts/MainLayout.astro';
+import DashboardLayout from '../../layouts/DashboardLayout.astro';
 import HealthDashboard from '../../components/HealthDashboard';
 import { getAllHealthStatus } from '../../lib/health-checks';
 
@@ -11,7 +11,7 @@ const userId = auth?.userId;
 const healthStatus = await getAllHealthStatus(userId);
 ---
 
-<MainLayout
+<DashboardLayout
   title="RL Strings | Site Health Dashboard"
   description="System health monitoring and diagnostics for RL Strings platform"
 >

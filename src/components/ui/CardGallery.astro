@@ -1,0 +1,23 @@
+<div class="space-y-8">
+  <span class="section-label">04 // Compositional Patterns</span>
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+    <div class="group relative aspect-[4/5] overflow-hidden rounded-3xl bg-brand-border">
+      <div class="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent z-10"></div>
+      <img src="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=800" class="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" alt="" />
+      <div class="absolute bottom-0 left-0 p-8 z-20">
+        <h3 class="text-2xl font-bold mb-2">Edge Computing</h3>
+        <p class="text-sm text-brand-muted mb-4">Minimize latency by shipping code closer to your users.</p>
+        <span class="text-xs font-mono text-brand-accent group-hover:underline">Learn More -></span>
+      </div>
+    </div>
+    <div class="component-card flex flex-col justify-between border-t-4 border-t-brand-accent">
+      <span class="text-4xl font-extrabold block">99.9%</span>
+      <div class="mt-12 h-20 flex items-end gap-1">
+        {[20, 40, 60, 100].map(h => <div class="flex-1 bg-brand-accent/40 rounded-t" style={`height: ${h}%`}></div>)}
+      </div>
+    </div>
+    <div class="component-card font-mono text-sm bg-black relative">
+       <pre class="text-green-400"><code>const foundry = () => "Shipping..."</code></pre>
+    </div>
+  </div>
+</div>
