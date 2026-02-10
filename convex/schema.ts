@@ -49,5 +49,5 @@ export default defineSchema({
       v.literal("service"),
       v.literal("upsell")
     ),
-  }),
+  }).index("by_priceId", ["priceId"]),
 });

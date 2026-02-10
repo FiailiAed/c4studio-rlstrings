@@ -8,7 +8,9 @@
  * @module
  */
 
+import type * as auth from "../auth.js";
 import type * as http from "../http.js";
+import type * as inventory from "../inventory.js";
 import type * as orders from "../orders.js";
 import type * as stripe from "../stripe.js";
 
@@ -19,7 +21,9 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  auth: typeof auth;
   http: typeof http;
+  inventory: typeof inventory;
   orders: typeof orders;
   stripe: typeof stripe;
 }>;
