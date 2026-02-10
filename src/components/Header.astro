@@ -5,8 +5,9 @@ const { pathname } = Astro.url;
 
 const navLinks = [
   { href: '/shop/builder', label: 'The Builder' },
-  { href: '/admin', label: 'Admin' },
+  { href: '/shop', label: 'Shop' },
   { href: '/order', label: 'Order' },
+  { href: '/admin', label: 'Admin' },
 ];
 
 const isActive = (href: string) => pathname === href;
