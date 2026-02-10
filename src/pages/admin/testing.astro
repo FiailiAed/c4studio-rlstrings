@@ -1,0 +1,32 @@
+---
+import DashboardLayout from '../../layouts/DashboardLayout.astro';
+import { getProducts } from '../../lib/stripe';
+import type { ProductCardData } from '../../components/StripeCheckoutTest';
+import StripeCheckoutTest from '../../components/StripeCheckoutTest';
+
+const rawProducts = await getProducts();
+
+const products: ProductCardData[] = rawProducts.map((p) => {
+  const price = p.default_price;
+  return {
+    id: p.id,
+    name: p.name,
+    description: p.description,
+    images: p.images,
+    priceId: price?.id ?? null,
+    priceAmount: price?.unit_amount ?? null,
+    priceCurrency: price?.currency ?? 'usd',
+    priceType: price?.type === 'recurring' ? 'recurring' : 'one_time',
+  };
+});
+
+const convexUrl = import.meta.env.PUBLIC_CONVEX_URL;
+---
+
+<DashboardLayout
+  title="RL Strings | Admin Dashboard"
+  activePage="Testing"
+  description="Order Fullfillment Lifecycle Management Portal"
+>
+  <StripeCheckoutTest client:load products={products} convexUrl={convexUrl} />
+</DashboardLayout>

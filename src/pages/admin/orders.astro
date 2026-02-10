@@ -1,5 +1,36 @@
 ---
 import DashboardLayout from '../../layouts/DashboardLayout.astro';
+import { getConvexClient } from '../../lib/convex';
+import { api } from '../../../convex/_generated/api';
+
+const orders = await getConvexClient().query(api.orders.listOrders, {});
+
+function formatDate(ms: number): string {
+  return new Date(ms).toLocaleDateString('en-US', {
+    year: 'numeric', month: 'short', day: 'numeric',
+  });
+}
+
+function formatCents(cents: number): string {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+  }).format(cents / 100);
+}
+
+function orderTotal(lineItems?: { totalAmount: number }[]): string {
+  if (!lineItems || lineItems.length === 0) return '—';
+  const sum = lineItems.reduce((acc, item) => acc + item.totalAmount, 0);
+  return formatCents(sum);
+}
+
+const statusColor: Record<string, string> = {
+  paid:             'bg-green-500/20 text-green-400',
+  dropped_off:      'bg-blue-500/20 text-blue-400',
+  in_progress:      'bg-yellow-500/20 text-yellow-400',
+  ready_for_pickup: 'bg-purple-500/20 text-purple-400',
+  completed:        'bg-slate-500/20 text-slate-300',
+};
 ---
 
 <DashboardLayout
@@ -7,6 +38,46 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
   activePage="Orders"
   description="Orders Dashboard"
 >
+  <div class="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+    <h2 class="text-2xl font-bold tracking-tight text-white">Orders</h2>
 
-
+    {orders.length === 0 ? (
+      <p class="mt-6 text-slate-400">No orders found.</p>
+    ) : (
+      <div class="mt-6 overflow-x-auto rounded-lg ring-1 ring-slate-700">
+        <table class="min-w-full divide-y divide-slate-700">
+          <thead class="bg-slate-800">
+            <tr>
+              <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-400">Date</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-400">Customer</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-400">Email</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-400">Description</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-400">Status</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-400">Pickup Code</th>
+              <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-400">Total</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-800 bg-slate-900">
+            {orders.map((order) => (
+              <tr class="hover:bg-slate-800/50 transition-colors">
+                <td class="whitespace-nowrap px-4 py-3 text-sm text-slate-300">{formatDate(order._creationTime)}</td>
+                <td class="px-4 py-3 text-sm text-slate-200">{order.customerName}</td>
+                <td class="px-4 py-3 text-sm text-slate-400">{order.email}</td>
+                <td class="px-4 py-3 text-sm text-slate-200">{order.itemDescription}</td>
+                <td class="whitespace-nowrap px-4 py-3">
+                  <span class={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${statusColor[order.status] ?? 'bg-slate-700 text-slate-300'}`}>
+                    {order.status.replace(/_/g, ' ')}
+                  </span>
+                </td>
+                <td class="whitespace-nowrap px-4 py-3 text-sm font-mono text-slate-200">{order.pickupCode}</td>
+                <td class="whitespace-nowrap px-4 py-3 text-right text-sm font-medium text-white">
+                  {orderTotal(order.lineItems)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )}
+  </div>
 </DashboardLayout>

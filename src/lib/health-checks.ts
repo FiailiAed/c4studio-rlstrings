@@ -110,9 +110,9 @@ export async function checkConvexHealth(): Promise<ServiceStatus> {
     // Create a client and test a query
     const client = new ConvexClient(convexUrl);
 
-    // Test connection with a simple query (assuming tasks.list exists)
+    // Test connection with a simple query
     await withTimeout(
-      client.query(api.tasks.list, {}),
+      client.query(api.orders.listOrders, {}),
       5000
     );
 

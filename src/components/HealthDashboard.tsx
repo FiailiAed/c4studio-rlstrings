@@ -115,7 +115,7 @@ export default function HealthDashboard({ initialStatus }: HealthDashboardProps)
 
         setRevealedSecrets(prev => ({
           ...prev,
-          [key]: { value: data.secret, timer }
+          [key]: { value: data.secret, timer: timer as unknown as number }
         }));
       }
     } catch (error) {
