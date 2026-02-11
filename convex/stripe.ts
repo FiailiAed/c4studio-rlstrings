@@ -23,7 +23,7 @@ export const createSubscriptionCheckout = action({
       name: identity.name,
     });
 
-    const origin = process.env.SITE_URL ?? "http://localhost:4321";
+    const origin = process.env.SITE_URL ?? "https://rlstrings.com";
 
     // Create checkout session
     return await stripeClient.createCheckoutSession(ctx, {
@@ -51,7 +51,7 @@ export const createPublicCheckout = action({
     const stripeKey = process.env.STRIPE_SECRET_KEY;
     if (!stripeKey) throw new Error("STRIPE_SECRET_KEY not configured");
 
-    const origin = process.env.SITE_URL ?? "http://localhost:4321";
+    const origin = process.env.SITE_URL ?? "https://rlstrings.com";
 
     // Find a unique pickup code (retry up to 10 times)
     let pickupCode = "";
@@ -109,7 +109,7 @@ export const createPaymentCheckout = action({
       name: identity.name,
     });
 
-    const origin = process.env.SITE_URL ?? "http://localhost:4321";
+    const origin = process.env.SITE_URL ?? "https://rlstrings.com";
 
     return await stripeClient.createCheckoutSession(ctx, {
       priceId: args.priceId,
