@@ -33,9 +33,10 @@ export const createNewOrderAfterStripeCheckoutSession = internalMutation({
         v.literal("upsell")
       ),
     }))),
+    pickupCode: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const pickupCode = String(Math.floor(1000 + Math.random() * 9000));
+    const pickupCode = args.pickupCode ?? String(Math.floor(1000 + Math.random() * 9000));
 
     await ctx.db.insert("orders", {
       stripeSessionId: args.stripeSessionId,
@@ -64,5 +65,29 @@ export const archiveOrder = mutation({
   args: { id: v.id("orders") },
   handler: async (ctx, args) => {
     await ctx.db.delete(args.id);
+  },
+});
+
+// Public query — returns only non-sensitive fields, used by the order status page
+export const getPublicOrderByPickupCode = query({
+  args: { pickupCode: v.string() },
+  handler: async (ctx, args) => {
+    const order = await ctx.db
+      .query("orders")
+      .withIndex("by_pickup_code", (q) => q.eq("pickupCode", args.pickupCode))
+      .first();
+
+    if (!order) return null;
+
+    return {
+      _id: order._id,
+      status: order.status,
+      orderType: order.orderType,
+      itemDescription: order.itemDescription,
+      pickupCode: order.pickupCode,
+      droppedOffAt: order.droppedOffAt ?? null,
+      completedAt: order.completedAt ?? null,
+      lineItems: order.lineItems ?? null,
+    };
   },
 });

@@ -1,5 +1,5 @@
 import { action } from "./_generated/server";
-import { components } from "./_generated/api";
+import { components, api } from "./_generated/api";
 import { StripeSubscriptions } from "@convex-dev/stripe";
 import { v } from "convex/values";
 
@@ -23,13 +23,15 @@ export const createSubscriptionCheckout = action({
       name: identity.name,
     });
 
+    const origin = process.env.SITE_URL ?? "http://localhost:4321";
+
     // Create checkout session
     return await stripeClient.createCheckoutSession(ctx, {
       priceId: args.priceId,
       customerId: customer.customerId,
       mode: "subscription",
-      successUrl: "http://localhost:4321/?success=true",
-      cancelUrl: "http://localhost:4321/?canceled=true",
+      successUrl: `${origin}/?success=true`,
+      cancelUrl: `${origin}/?canceled=true`,
       subscriptionMetadata: { userId: identity.subject },
     });
   },
@@ -45,11 +47,20 @@ export const createPublicCheckout = action({
     sessionId: v.string(),
     url: v.union(v.string(), v.null()),
   }),
-  handler: async (_ctx, args): Promise<{ sessionId: string; url: string | null }> => {
+  handler: async (ctx, args): Promise<{ sessionId: string; url: string | null }> => {
     const stripeKey = process.env.STRIPE_SECRET_KEY;
     if (!stripeKey) throw new Error("STRIPE_SECRET_KEY not configured");
 
     const origin = process.env.SITE_URL ?? "http://localhost:4321";
+
+    // Find a unique pickup code (retry up to 10 times)
+    let pickupCode = "";
+    for (let i = 0; i < 10; i++) {
+      const candidate = String(Math.floor(1000 + Math.random() * 9000));
+      const existing = await ctx.runQuery(api.orders.getPublicOrderByPickupCode, { pickupCode: candidate });
+      if (!existing) { pickupCode = candidate; break; }
+    }
+    if (!pickupCode) throw new Error("Could not generate a unique pickup code. Please try again.");
 
     const body = new URLSearchParams({
       "line_items[0][price]": args.priceId,
@@ -57,7 +68,8 @@ export const createPublicCheckout = action({
       mode: args.mode,
       customer_creation: "always",
       "metadata[orderType]": "product",
-      success_url: `${origin}/shop?success=true`,
+      "metadata[pickupCode]": pickupCode,
+      success_url: `${origin}/order/${pickupCode}`,
       cancel_url: `${origin}/shop`,
     });
 
@@ -97,12 +109,14 @@ export const createPaymentCheckout = action({
       name: identity.name,
     });
 
+    const origin = process.env.SITE_URL ?? "http://localhost:4321";
+
     return await stripeClient.createCheckoutSession(ctx, {
       priceId: args.priceId,
       customerId: customer.customerId,
       mode: "payment",
-      successUrl: "http://localhost:4321/admin/orders",
-      cancelUrl: "http://localhost:4321/admin/orders",
+      successUrl: `${origin}/admin/orders`,
+      cancelUrl: `${origin}/admin/orders`,
       paymentIntentMetadata: { userId: identity.subject },
     });
   },

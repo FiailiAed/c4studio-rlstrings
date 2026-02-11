@@ -1,0 +1,150 @@
+---
+import MainLayout from '../../layouts/MainLayout.astro';
+import { ConvexHttpClient } from 'convex/browser';
+import { api } from '../../../convex/_generated/api';
+
+const { id } = Astro.params;
+if (!id) return Astro.redirect('/order');
+
+const client = new ConvexHttpClient(import.meta.env.PUBLIC_CONVEX_URL);
+const order = await client.query(api.orders.getPublicOrderByPickupCode, { pickupCode: id });
+
+if (!order) return Astro.redirect('/order?notfound=true');
+
+const STATUS_STEPS = [
+  { key: 'paid',             label: 'Order Confirmed' },
+  { key: 'dropped_off',      label: 'Stick Received' },
+  { key: 'in_progress',      label: 'Being Strung' },
+  { key: 'ready_for_pickup', label: 'Ready for Pickup!' },
+  { key: 'completed',        label: 'Order Complete' },
+] as const;
+
+const currentStepIndex = STATUS_STEPS.findIndex((s) => s.key === order.status);
+const headline = STATUS_STEPS[currentStepIndex]?.label ?? 'Order Status';
+
+function formatDate(ts: number | null): string {
+  if (!ts) return '';
+  return new Date(ts).toLocaleDateString('en-US', {
+    month: 'long', day: 'numeric', year: 'numeric',
+    hour: 'numeric', minute: '2-digit',
+  });
+}
+---
+
+<MainLayout
+  title={`RL Strings | Order ${id}`}
+  description="Check your order status."
+>
+  <section class="max-w-2xl mx-auto space-y-6 px-4">
+
+    <!-- Status Headline -->
+    <div class="text-center space-y-1">
+      <p class="text-slate-400 text-sm uppercase tracking-widest">Order Status</p>
+      <h1 class="text-4xl font-black uppercase tracking-tight">
+        {headline}
+      </h1>
+    </div>
+
+    <!-- Progress Stepper -->
+    <div class="bg-slate-900/50 backdrop-blur-sm border border-slate-700/50 rounded-xl p-6">
+      <ol class="flex items-start gap-0">
+        {STATUS_STEPS.map((step, i) => {
+          const isCurrent = i === currentStepIndex;
+          const isPast    = i < currentStepIndex;
+          const isFuture  = i > currentStepIndex;
+          const isLast    = i === STATUS_STEPS.length - 1;
+
+          return (
+            <li class={`flex-1 flex flex-col items-center relative ${!isLast ? 'after:content-[\'\'] after:absolute after:top-4 after:left-[calc(50%+16px)] after:right-[calc(-50%+16px)] after:h-px after:' + (isPast ? 'bg-red-600' : 'bg-slate-700') : ''}`}>
+              <!-- Circle -->
+              <div class={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 z-10 text-xs font-bold border-2 transition-colors
+                ${isCurrent ? 'bg-red-600 border-red-500 text-white' : ''}
+                ${isPast    ? 'bg-red-900/60 border-red-700 text-red-300' : ''}
+                ${isFuture  ? 'bg-slate-800 border-slate-600 text-slate-500' : ''}
+              `}>
+                {isPast ? (
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                ) : (
+                  <span>{i + 1}</span>
+                )}
+              </div>
+              <!-- Label -->
+              <p class={`mt-2 text-center text-xs leading-tight px-1
+                ${isCurrent ? 'text-white font-bold' : ''}
+                ${isPast    ? 'text-red-400' : ''}
+                ${isFuture  ? 'text-slate-500' : ''}
+              `}>
+                {step.label}
+              </p>
+            </li>
+          );
+        })}
+      </ol>
+    </div>
+
+    <!-- Pickup Code Block -->
+    <div class="bg-slate-900/50 backdrop-blur-sm border border-slate-700/50 rounded-xl p-6 text-center space-y-2">
+      <p class="text-slate-400 text-xs uppercase tracking-widest">Your Pickup Code</p>
+      <p class="text-6xl font-mono font-black tracking-widest text-white">{order.pickupCode}</p>
+      <p class="text-slate-400 text-xs">Show this code at Stellar Athletics when dropping off or picking up your stick.</p>
+    </div>
+
+    <!-- Line Items or Description -->
+    <div class="bg-slate-900/50 backdrop-blur-sm border border-slate-700/50 rounded-xl p-6 space-y-4">
+      <h2 class="text-sm font-bold uppercase tracking-widest text-slate-400">Order Details</h2>
+
+      {order.lineItems && order.lineItems.length > 0 ? (
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-slate-700/50 text-slate-400 text-xs uppercase">
+              <th class="text-left pb-2 font-semibold">Item</th>
+              <th class="text-center pb-2 font-semibold">Qty</th>
+              <th class="text-right pb-2 font-semibold">Price</th>
+              <th class="text-right pb-2 font-semibold">Total</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-700/30">
+            {order.lineItems.map((item) => (
+              <tr>
+                <td class="py-2 text-white">{item.productName}</td>
+                <td class="py-2 text-center text-slate-300">{item.quantity}</td>
+                <td class="py-2 text-right text-slate-300">${(item.unitAmount / 100).toFixed(2)}</td>
+                <td class="py-2 text-right text-white font-semibold">${(item.totalAmount / 100).toFixed(2)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : (
+        <p class="text-slate-300">{order.itemDescription}</p>
+      )}
+    </div>
+
+    <!-- Timestamps -->
+    {(order.droppedOffAt || order.completedAt) && (
+      <div class="bg-slate-900/50 backdrop-blur-sm border border-slate-700/50 rounded-xl p-6 space-y-2 text-sm">
+        {order.droppedOffAt && (
+          <div class="flex justify-between text-slate-300">
+            <span class="text-slate-400">Dropped off</span>
+            <span>{formatDate(order.droppedOffAt)}</span>
+          </div>
+        )}
+        {order.completedAt && (
+          <div class="flex justify-between text-slate-300">
+            <span class="text-slate-400">Completed</span>
+            <span>{formatDate(order.completedAt)}</span>
+          </div>
+        )}
+      </div>
+    )}
+
+    <!-- Footer link -->
+    <div class="text-center pb-4">
+      <a href="/order" class="text-slate-400 hover:text-white text-sm underline underline-offset-4 transition-colors">
+        Check another order
+      </a>
+    </div>
+
+  </section>
+</MainLayout>

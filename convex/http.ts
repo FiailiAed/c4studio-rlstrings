@@ -54,6 +54,7 @@ registerRoutes(http, components.stripe, {
         orderType,
         itemDescription,
         lineItems,
+        pickupCode: fullSession.metadata?.pickupCode,
       });
     },
   },

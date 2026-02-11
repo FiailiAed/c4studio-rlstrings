@@ -1,17 +1,67 @@
 ---
 import MainLayout from '../../layouts/MainLayout.astro';
+
+const notFound = Astro.url.searchParams.get('notfound') !== null;
 ---
 
 <MainLayout
-  title="RL Strings | Shop"
-  description="Stop settling for factory trash. Custom built, professionally strung."
+  title="RL Strings | Find Your Order"
+  description="Enter your 4-digit pickup code to check your order status."
 >
+  <section class="flex flex-col items-center justify-center min-h-[60vh] px-4">
+    <div class="w-full max-w-md bg-slate-900/50 backdrop-blur-sm border border-slate-700/50 rounded-xl p-8 space-y-6">
+      <div class="text-center space-y-2">
+        <h1 class="text-3xl font-black uppercase tracking-tight">
+          Find Your <span class="text-transparent bg-clip-text bg-gradient-to-br from-red-500 to-red-700">Order</span>
+        </h1>
+        <p class="text-slate-400 text-sm">Enter your 4-digit pickup code to check your order status.</p>
+      </div>
 
-  <section>
-      <!-- Headline -->
-      <h1 class="text-6xl md:text-8xl font-black tracking-tighter mb-6 leading-[0.9] uppercase">
-        This is the <span class="text-transparent bg-clip-text bg-gradient-to-br from-red-500 to-red-700">ORDER.</span>
-      </h1>
+      {notFound && (
+        <div class="bg-red-900/40 border border-red-700/50 rounded-lg px-4 py-3 text-red-300 text-sm text-center">
+          No order found with that code. Please double-check and try again.
+        </div>
+      )}
+
+      <form
+        id="order-lookup"
+        class="space-y-4"
+      >
+        <div class="space-y-2">
+          <label for="pickup-code" class="block text-sm font-semibold text-slate-300">
+            Pickup Code
+          </label>
+          <input
+            id="pickup-code"
+            type="text"
+            inputmode="numeric"
+            pattern="[0-9]{4}"
+            maxlength="4"
+            placeholder="1234"
+            required
+            class="w-full bg-slate-800/60 border border-slate-600/50 rounded-lg px-4 py-3 text-white text-center text-2xl font-mono tracking-widest placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:border-red-500/50 transition"
+          />
+        </div>
+
+        <button
+          type="submit"
+          class="w-full bg-red-600 hover:bg-red-500 text-white font-bold py-3 px-6 rounded-lg transition-colors uppercase tracking-wide"
+        >
+          Find My Order
+        </button>
+      </form>
+    </div>
   </section>
 
+  <script>
+    const form = document.getElementById('order-lookup') as HTMLFormElement;
+    form?.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const input = document.getElementById('pickup-code') as HTMLInputElement;
+      const code = input.value.trim();
+      if (code.length === 4 && /^\d{4}$/.test(code)) {
+        window.location.href = `/order/${code}`;
+      }
+    });
+  </script>
 </MainLayout>

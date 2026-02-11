@@ -35,7 +35,7 @@ export default defineSchema({
         v.literal("upsell")
       )
     }))),
-  }).index("by_email", ["email"]).index("by_status", ["status"]),
+  }).index("by_email", ["email"]).index("by_status", ["status"]).index("by_pickup_code", ["pickupCode"]),
 
   inventory: defineTable({
     name: v.string(),
