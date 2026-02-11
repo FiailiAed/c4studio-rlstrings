@@ -163,7 +163,53 @@ export default function InventoryManager({ initialItems, convexUrl }: InventoryM
       {items.length === 0 ? (
         <p className="mt-6 text-slate-400">No inventory items. Click "Sync from Stripe" to import products.</p>
       ) : (
-        <div className="overflow-x-auto rounded-lg ring-1 ring-slate-700">
+        <>
+        {/* Mobile card layout */}
+        <div className="md:hidden space-y-3">
+          {items.map((item) => (
+            <div key={item._id} className="bg-slate-900 ring-1 ring-slate-700 rounded-lg p-4 space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm font-semibold text-slate-200 truncate">{item.name}</span>
+                <span className={`shrink-0 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${categoryColor[item.category] ?? 'bg-slate-700 text-slate-300'}`}>
+                  {item.category}
+                </span>
+              </div>
+              <p className="text-xs font-mono text-slate-500 truncate">{item.priceId}</p>
+              <div className="flex items-center justify-between pt-1">
+                <span className={`text-sm ${stockColor(item.stock)}`}>Stock: {item.stock}</span>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => handleStockAdjust(item._id, -1)}
+                    disabled={loadingId === item._id || item.stock === 0}
+                    className="min-h-9 min-w-9 flex items-center justify-center rounded bg-slate-700 hover:bg-slate-600 disabled:opacity-30 text-slate-300 transition-colors"
+                    title="Decrease stock"
+                  >
+                    {loadingId === item._id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Minus className="w-4 h-4" />}
+                  </button>
+                  <button
+                    onClick={() => handleStockAdjust(item._id, 1)}
+                    disabled={loadingId === item._id}
+                    className="min-h-9 min-w-9 flex items-center justify-center rounded bg-slate-700 hover:bg-slate-600 disabled:opacity-30 text-slate-300 transition-colors"
+                    title="Increase stock"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => handleDelete(item._id, item.name)}
+                    disabled={loadingId === item._id}
+                    className="min-h-9 min-w-9 flex items-center justify-center rounded bg-red-900/50 hover:bg-red-800/50 disabled:opacity-30 text-red-400 transition-colors ml-2"
+                    title="Delete item"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Desktop table layout */}
+        <div className="hidden md:block overflow-x-auto rounded-lg ring-1 ring-slate-700">
           <table className="min-w-full divide-y divide-slate-700">
             <thead className="bg-slate-800">
               <tr>
@@ -220,6 +266,7 @@ export default function InventoryManager({ initialItems, convexUrl }: InventoryM
             </tbody>
           </table>
         </div>
+        </>
       )}
     </div>
   );

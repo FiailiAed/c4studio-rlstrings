@@ -35,6 +35,51 @@ export const createSubscriptionCheckout = action({
   },
 });
 
+// Create a public (unauthenticated) checkout session for a one-time or subscription payment
+export const createPublicCheckout = action({
+  args: {
+    priceId: v.string(),
+    mode: v.union(v.literal("payment"), v.literal("subscription")),
+  },
+  returns: v.object({
+    sessionId: v.string(),
+    url: v.union(v.string(), v.null()),
+  }),
+  handler: async (_ctx, args): Promise<{ sessionId: string; url: string | null }> => {
+    const stripeKey = process.env.STRIPE_SECRET_KEY;
+    if (!stripeKey) throw new Error("STRIPE_SECRET_KEY not configured");
+
+    const origin = process.env.SITE_URL ?? "http://localhost:4321";
+
+    const body = new URLSearchParams({
+      "line_items[0][price]": args.priceId,
+      "line_items[0][quantity]": "1",
+      mode: args.mode,
+      customer_creation: "always",
+      "metadata[orderType]": "product",
+      success_url: `${origin}/shop?success=true`,
+      cancel_url: `${origin}/shop`,
+    });
+
+    const res = await fetch("https://api.stripe.com/v1/checkout/sessions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${stripeKey}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: body.toString(),
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Stripe error: ${res.status} ${text}`);
+    }
+
+    const session = await res.json() as { id: string; url: string | null };
+    return { sessionId: session.id, url: session.url };
+  },
+});
+
 // Create a checkout session for a one-time payment
 export const createPaymentCheckout = action({
   args: { priceId: v.string() },

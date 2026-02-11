@@ -55,6 +55,17 @@ const navigation = [
                   </ul>
                 </li>
               </ul>
+              <li class="mt-auto">
+                <a href="#" class="flex items-center gap-x-4 py-3 text-sm font-semibold text-white hover:bg-slate-800 rounded-md transition px-2">
+                  <SignedIn>
+                    <UserButton appearance={{
+                      elements: {
+                        avatarBox: "border-2 border-red-600/50 hover:border-red-600 transition-colors",
+                      }
+                    }} />
+                  </SignedIn>
+                </a>
+              </li>
             </nav>
           </div>
         </div>
@@ -110,6 +121,13 @@ const navigation = [
           </svg>
         </button>
         <div class="flex-1 text-sm font-semibold leading-6 text-white">{activePage}</div>
+        <SignedIn>
+          <UserButton appearance={{
+            elements: {
+              avatarBox: "border-2 border-red-600/50 hover:border-red-600 transition-colors",
+            }
+          }} />
+        </SignedIn>
       </div>
 
       <main class="py-10">

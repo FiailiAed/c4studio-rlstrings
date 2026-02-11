@@ -1,5 +1,27 @@
 ---
 import MainLayout from '../../layouts/MainLayout.astro';
+
+import { getProducts } from '../../lib/stripe'
+import type { ProductCardData } from '../../components/StripeShopCheckout';
+import StripeShopCheckout from '../../components/StripeShopCheckout';
+
+const rawProducts = await getProducts();
+
+const products: ProductCardData[] = rawProducts.map((p) => {
+  const price = p.default_price;
+  return {
+    id: p.id,
+    name: p.name,
+    description: p.description,
+    images: p.images,
+    priceId: price?.id ?? null,
+    priceAmount: price?.unit_amount ?? null,
+    priceCurrency: price?.currency ?? 'usd',
+    priceType: price?.type === 'recurring' ? 'recurring' : 'one_time',
+  };
+});
+
+const convexUrl = import.meta.env.PUBLIC_CONVEX_URL;
 ---
 
 <MainLayout
@@ -13,5 +35,6 @@ import MainLayout from '../../layouts/MainLayout.astro';
         This is the <span class="text-transparent bg-clip-text bg-gradient-to-br from-red-500 to-red-700">SHOP.</span>
       </h1>
   </section>
+  <StripeShopCheckout client:load products={products} convexUrl={convexUrl} />
 
 </MainLayout>
