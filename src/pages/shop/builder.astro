@@ -1,5 +1,24 @@
 ---
 import MainLayout from '../../layouts/MainLayout.astro';
+import type { ProductCardData } from '../../components/StripeShopCheckout';
+import StripeShopCheckout from '../../components/StripeShopCheckout';
+import { ConvexHttpClient } from 'convex/browser';
+import { api } from '../../../convex/_generated/api';
+
+const convexUrl = import.meta.env.PUBLIC_CONVEX_URL;
+const client = new ConvexHttpClient(convexUrl);
+const builderItems = await client.query(api.inventory.getBuilderProducts, {});
+
+const products: ProductCardData[] = builderItems.map((item) => ({
+  id: item._id,
+  name: item.name,
+  description: item.description ?? null,
+  images: item.images ?? [],
+  priceId: item.priceId ?? null,
+  priceAmount: item.unitAmount ?? null,
+  priceCurrency: item.currency ?? 'usd',
+  priceType: item.priceType === 'recurring' ? 'recurring' : 'one_time',
+}));
 ---
 
 <MainLayout
@@ -13,6 +32,6 @@ import MainLayout from '../../layouts/MainLayout.astro';
         This is the <span class="text-transparent bg-clip-text bg-gradient-to-br from-red-500 to-red-700">BUILDER.</span>
       </h1>
   </section>
+  <StripeShopCheckout client:load products={products} convexUrl={convexUrl} />
 
 </MainLayout>
-

@@ -49,5 +49,13 @@ export default defineSchema({
       v.literal("service"),
       v.literal("upsell")
     ),
+    showInShop: v.optional(v.boolean()),
+    showInBuilder: v.optional(v.boolean()),
+    description: v.optional(v.string()),
+    images: v.optional(v.array(v.string())),
+    stripeProductId: v.optional(v.string()),
+    unitAmount: v.optional(v.number()),
+    currency: v.optional(v.string()),
+    priceType: v.optional(v.union(v.literal("one_time"), v.literal("recurring"))),
   }).index("by_priceId", ["priceId"]),
 });

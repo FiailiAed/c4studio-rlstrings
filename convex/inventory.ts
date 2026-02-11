@@ -151,17 +151,25 @@ export const upsertFromStripe = internalMutation({
     name: v.string(),
     category: CATEGORY_VALUES,
     existingId: v.optional(v.id("inventory")),
+    showInShop: v.optional(v.boolean()),
+    showInBuilder: v.optional(v.boolean()),
+    description: v.optional(v.string()),
+    images: v.optional(v.array(v.string())),
+    stripeProductId: v.optional(v.string()),
+    unitAmount: v.optional(v.number()),
+    currency: v.optional(v.string()),
+    priceType: v.optional(v.union(v.literal("one_time"), v.literal("recurring"))),
   },
   handler: async (ctx, args) => {
-    if (args.existingId) {
-      await ctx.db.patch(args.existingId, { name: args.name });
+    const { existingId, priceId, ...fields } = args;
+    if (existingId) {
+      await ctx.db.patch(existingId, fields);
       return { action: "updated" as const };
     } else {
       await ctx.db.insert("inventory", {
-        name: args.name,
-        priceId: args.priceId,
+        priceId,
         stock: 0,
-        category: args.category,
+        ...fields,
       });
       return { action: "created" as const };
     }
@@ -198,8 +206,10 @@ export const syncFromStripe = action({
     const products = data.data as Array<{
       id: string;
       name: string;
+      description?: string | null;
+      images?: string[];
       metadata?: Record<string, string>;
-      default_price?: { id: string } | string | null;
+      default_price?: { id: string; unit_amount?: number | null; currency?: string; type?: string } | string | null;
     }>;
 
     let created = 0;
@@ -213,12 +223,25 @@ export const syncFromStripe = action({
 
       const existing = await ctx.runQuery(internal.inventory.getByPriceId, { priceId });
       const category = toCategory(product.metadata?.category);
+      const showInShop = product.metadata?.shop === "true";
+      const showInBuilder = product.metadata?.builder === "true";
+
+      const priceData = typeof priceObj === "object" && priceObj !== null ? priceObj : undefined;
+      const priceType: "one_time" | "recurring" = priceData?.type === "recurring" ? "recurring" : "one_time";
 
       const result = await ctx.runMutation(internal.inventory.upsertFromStripe, {
         priceId,
         name: product.name,
         category,
         existingId: existing?._id,
+        showInShop,
+        showInBuilder,
+        description: product.description ?? undefined,
+        images: product.images ?? [],
+        stripeProductId: product.id,
+        unitAmount: priceData?.unit_amount ?? undefined,
+        currency: priceData?.currency ?? "usd",
+        priceType,
       });
 
       if (result.action === "created") created++;
@@ -226,6 +249,24 @@ export const syncFromStripe = action({
     }
 
     return { created, updated };
+  },
+});
+
+// Get products flagged for the shop (in-stock only)
+export const getShopProducts = query({
+  args: {},
+  handler: async (ctx) => {
+    const items = await ctx.db.query("inventory").collect();
+    return items.filter((i) => i.showInShop === true && i.stock > 0);
+  },
+});
+
+// Get products flagged for the builder (in-stock only)
+export const getBuilderProducts = query({
+  args: {},
+  handler: async (ctx) => {
+    const items = await ctx.db.query("inventory").collect();
+    return items.filter((i) => i.showInBuilder === true && i.stock > 0);
   },
 });
 

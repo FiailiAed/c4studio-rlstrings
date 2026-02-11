@@ -12,6 +12,14 @@ export type InventoryItem = {
   priceId: string;
   stock: number;
   category: string;
+  showInShop?: boolean;
+  showInBuilder?: boolean;
+  description?: string;
+  images?: string[];
+  stripeProductId?: string;
+  unitAmount?: number;
+  currency?: string;
+  priceType?: 'one_time' | 'recurring';
 };
 
 interface InventoryManagerProps {
@@ -175,6 +183,14 @@ export default function InventoryManager({ initialItems, convexUrl }: InventoryM
                 </span>
               </div>
               <p className="text-xs font-mono text-slate-500 truncate">{item.priceId}</p>
+              <div className="flex items-center gap-1.5">
+                {item.showInShop && (
+                  <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium bg-emerald-500/20 text-emerald-400">Shop</span>
+                )}
+                {item.showInBuilder && (
+                  <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium bg-indigo-500/20 text-indigo-400">Builder</span>
+                )}
+              </div>
               <div className="flex items-center justify-between pt-1">
                 <span className={`text-sm ${stockColor(item.stock)}`}>Stock: {item.stock}</span>
                 <div className="flex items-center gap-1">
@@ -216,6 +232,7 @@ export default function InventoryManager({ initialItems, convexUrl }: InventoryM
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-400">Name</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-400">Category</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-400">Price ID</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide text-slate-400">Visibility</th>
                 <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide text-slate-400">Stock</th>
                 <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide text-slate-400">Actions</th>
               </tr>
@@ -230,6 +247,19 @@ export default function InventoryManager({ initialItems, convexUrl }: InventoryM
                     </span>
                   </td>
                   <td className="px-4 py-3 text-xs font-mono text-slate-500 max-w-[200px] truncate">{item.priceId}</td>
+                  <td className="whitespace-nowrap px-4 py-3 text-center">
+                    <div className="flex items-center justify-center gap-1">
+                      {item.showInShop && (
+                        <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium bg-emerald-500/20 text-emerald-400">Shop</span>
+                      )}
+                      {item.showInBuilder && (
+                        <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium bg-indigo-500/20 text-indigo-400">Builder</span>
+                      )}
+                      {!item.showInShop && !item.showInBuilder && (
+                        <span className="text-[10px] text-slate-600">—</span>
+                      )}
+                    </div>
+                  </td>
                   <td className={`whitespace-nowrap px-4 py-3 text-sm text-center ${stockColor(item.stock)}`}>
                     {item.stock}
                   </td>

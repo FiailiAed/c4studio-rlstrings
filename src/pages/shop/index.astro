@@ -1,27 +1,24 @@
 ---
 import MainLayout from '../../layouts/MainLayout.astro';
-
-import { getProducts } from '../../lib/stripe'
 import type { ProductCardData } from '../../components/StripeShopCheckout';
 import StripeShopCheckout from '../../components/StripeShopCheckout';
-
-const rawProducts = await getProducts();
-
-const products: ProductCardData[] = rawProducts.map((p) => {
-  const price = p.default_price;
-  return {
-    id: p.id,
-    name: p.name,
-    description: p.description,
-    images: p.images,
-    priceId: price?.id ?? null,
-    priceAmount: price?.unit_amount ?? null,
-    priceCurrency: price?.currency ?? 'usd',
-    priceType: price?.type === 'recurring' ? 'recurring' : 'one_time',
-  };
-});
+import { ConvexHttpClient } from 'convex/browser';
+import { api } from '../../../convex/_generated/api';
 
 const convexUrl = import.meta.env.PUBLIC_CONVEX_URL;
+const client = new ConvexHttpClient(convexUrl);
+const shopItems = await client.query(api.inventory.getShopProducts, {});
+
+const products: ProductCardData[] = shopItems.map((item) => ({
+  id: item._id,
+  name: item.name,
+  description: item.description ?? null,
+  images: item.images ?? [],
+  priceId: item.priceId ?? null,
+  priceAmount: item.unitAmount ?? null,
+  priceCurrency: item.currency ?? 'usd',
+  priceType: item.priceType === 'recurring' ? 'recurring' : 'one_time',
+}));
 ---
 
 <MainLayout
