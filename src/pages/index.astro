@@ -1,99 +1,42 @@
 ---
-// Basic Astro Setup - Sample Page
-// Import global styles (includes Tailwind)
-import '../styles/global.css';
+import MinimalLayout from '../layouts/MinimalLayout.astro';
 ---
 
-<html lang="en">
-    <head>
-        <meta charset="utf-8" />
-        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-        <meta name="viewport" content="width=device-width" />
-        <meta name="generator" content={Astro.generator} />
-        <title>BAS - Basic Astro Setup</title>
-    </head>
-    <body class="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
-        <main class="container mx-auto px-4 py-16">
-            <!-- Header -->
-            <div class="text-center mb-16">
-                <h1 class="text-5xl md:text-7xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-pink-500 to-red-500 mb-4">
-                    RL Strings, LLC
-                </h1>
-                <p class="text-xl text-gray-300 mb-2">
-                Basic Astro Setup <span class="text-purple-400">(or Bad Ass Setup 😎)</span>
-                </p>
-                <p class="text-gray-400">
-                Bun + Astro + Convex + Tailwind + (Clerk, coming soon..)
-                </p>
-            </div>
+<MinimalLayout title="RL Strings - Coming Soon" defaultTheme="dark">
+  <main class="min-h-screen bg-gray-100 dark:bg-gradient-to-br dark:from-gray-950 dark:via-black dark:to-gray-950 flex items-center justify-center px-4 py-12 relative overflow-hidden">
 
-            <!-- Tech Stack Cards -->
-            <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
-                <!-- Bun -->
-                <div class="bg-white/5 backdrop-blur-lg rounded-2xl p-6 border border-white/10 hover:border-purple-500/50 transition-all duration-300 hover:scale-105">
-                    <div class="text-4xl mb-4">🥟</div>
-                    <h3 class="text-xl font-semibold text-white mb-2">Bun</h3>
-                    <p class="text-gray-400 text-sm">Lightning-fast JavaScript runtime & package manager</p>
-                </div>
+    <!-- Particle dots background -->
+    <div class="absolute inset-0 pointer-events-none" aria-hidden="true">
+      {[
+        { top: '10%', left: '15%', delay: '0s', size: '3px' },
+        { top: '20%', left: '80%', delay: '1s', size: '2px' },
+        { top: '60%', left: '10%', delay: '2s', size: '2px' },
+        { top: '75%', left: '70%', delay: '0.5s', size: '3px' },
+        { top: '40%', left: '90%', delay: '1.5s', size: '2px' },
+        { top: '85%', left: '40%', delay: '3s', size: '2px' },
+        { top: '30%', left: '50%', delay: '2.5s', size: '3px' },
+        { top: '50%', left: '25%', delay: '4s', size: '2px' },
+        { top: '15%', left: '60%', delay: '1.2s', size: '2px' },
+        { top: '90%', left: '85%', delay: '3.5s', size: '3px' },
+      ].map((dot) => (
+        <div
+          class="absolute rounded-full bg-red-600/20 dark:bg-red-600/40 animate-float"
+          style={`top:${dot.top};left:${dot.left};width:${dot.size};height:${dot.size};animation-delay:${dot.delay};`}
+        />
+      ))}
+    </div>
 
-                <!-- Astro -->
-                <div class="bg-white/5 backdrop-blur-lg rounded-2xl p-6 border border-white/10 hover:border-orange-500/50 transition-all duration-300 hover:scale-105">
-                    <div class="text-4xl mb-4">🚀</div>
-                    <h3 class="text-xl font-semibold text-white mb-2">Astro</h3>
-                    <p class="text-gray-400 text-sm">The web framework for content-driven websites</p>
-                </div>
+    <!-- Glassmorphic card -->
+    <div class="relative z-10 glass rounded-3xl p-8 md:p-14 max-w-lg w-full text-center">
+      <img src="/RL-Strings-Horiz.svg" alt="RL Strings" class="h-16 md:h-20 mx-auto mt-4 mb-4 dark:hidden" />
+      <img src="/RL-Strings-Horiz-White.svg" alt="RL Strings" class="h-16 md:h-20 mx-auto mt-4 mb-4 hidden dark:block" />
 
-                <!-- Convex -->
-                <div class="bg-white/5 backdrop-blur-lg rounded-2xl p-6 border border-white/10 hover:border-red-500/50 transition-all duration-300 hover:scale-105">
-                    <div class="text-4xl mb-4">⚡</div>
-                    <h3 class="text-xl font-semibold text-white mb-2">Convex</h3>
-                    <p class="text-gray-400 text-sm">Real-time backend with automatic caching</p>
-                </div>
+      <p class="text-red-600 dark:text-red-500 font-semibold uppercase tracking-widest text-sm mb-4 mt-8">Coming Soon</p>
 
-                <!-- Tailwind -->
-                <div class="bg-white/5 backdrop-blur-lg rounded-2xl p-6 border border-white/10 hover:border-cyan-500/50 transition-all duration-300 hover:scale-105">
-                    <div class="text-4xl mb-4">🎨</div>
-                    <h3 class="text-xl font-semibold text-white mb-2">Tailwind</h3>
-                    <p class="text-gray-400 text-sm">Utility-first CSS framework for rapid UI development</p>
-                </div>
-            </div>
+      <p class="text-gray-600 dark:text-gray-400 mb-8 font-light leading-relaxed">
+        We're stringing up an extraordinary experience for you!
+      </p>
 
-            <!-- Getting Started -->
-            <div class="bg-white/5 backdrop-blur-lg rounded-2xl p-8 border border-white/10 max-w-2xl mx-auto">
-                <h2 class="text-2xl font-bold text-white mb-6">🚀 Getting Started</h2>
-
-                <div class="space-y-4">
-                    <div class="flex items-start gap-4">
-                        <span class="shrink-0 w-8 h-8 bg-purple-500/20 rounded-full flex items-center justify-center text-purple-400 font-bold">1</span>
-                        <div>
-                            <p class="text-white font-medium">Set up Convex (in a new terminal)</p>
-                            <code class="text-sm text-gray-400 bg-black/30 px-2 py-1 rounded">bunx convex dev</code>
-                        </div>
-                    </div>
-
-                    <div class="flex items-start gap-4">
-                        <span class="shrink-0 w-8 h-8 bg-purple-500/20 rounded-full flex items-center justify-center text-purple-400 font-bold">2</span>
-                        <div>
-                            <p class="text-white font-medium">Copy the deployment URL to .env.local</p>
-                            <code class="text-sm text-gray-400 bg-black/30 px-2 py-1 rounded">PUBLIC_CONVEX_URL=https://...</code>
-                        </div>
-                    </div>
-
-                    <div class="flex items-start gap-4">
-                        <span class="shrink-0 w-8 h-8 bg-purple-500/20 rounded-full flex items-center justify-center text-purple-400 font-bold">3</span>
-                        <div>
-                            <p class="text-white font-medium">Start developing</p>
-                            <code class="text-sm text-gray-400 bg-black/30 px-2 py-1 rounded">bun run dev</code>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Footer -->
-            <footer class="text-center mt-16 text-gray-500 text-sm">
-                <p>Built with 💜 using BAS.sh</p>
-                <p>Deployed via c4studio 🛫</p>
-            </footer>
-        </main>
-    </body>
-</html>
+    </div>
+  </main>
+</MinimalLayout>
