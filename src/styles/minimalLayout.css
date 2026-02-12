@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* Animated gradient background */
 @utility animate-gradient {
   animation: gradientShift 8s ease infinite;
@@ -22,19 +24,16 @@
   50% { box-shadow: 0 0 60px rgba(220, 38, 38, 0.6); }
 }
 
-/* Glass card */
+/* Glass card — theme-aware */
 @utility glass {
-  background: rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-@utility glass-light {
   background: rgba(255, 255, 255, 0.7);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border: 1px solid rgba(0, 0, 0, 0.08);
+}
+.dark .glass {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 /* Floating dots for particle background */
