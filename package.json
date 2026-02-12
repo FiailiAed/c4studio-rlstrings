@@ -17,5 +17,9 @@
     "astro": "^5.17.1",
     "convex": "^1.31.7",
     "tailwindcss": "^4.1.18"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.6",
+    "typescript": "^5.9.3"
   }
 }
