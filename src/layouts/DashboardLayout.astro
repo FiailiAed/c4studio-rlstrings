@@ -1,5 +1,6 @@
 ---
 import '../styles/dashboard.css';
+import Analytics from '@vercel/analytics/astro';
 import { SignedIn, UserButton } from '@clerk/astro/components';
 
 interface Props {
@@ -148,5 +149,6 @@ const navigation = [
       openBtn?.addEventListener('click', () => sidebar?.classList.remove('hidden'));
       closeBtn?.addEventListener('click', () => sidebar?.classList.add('hidden'));
     </script>
+    <Analytics />
   </body>
 </html>

@@ -1,5 +1,6 @@
 ---
 import '../styles/global.css';
+import Analytics from '@vercel/analytics/astro';
 import Header from '../components/Header.astro';
 
 interface Props {
@@ -90,5 +91,6 @@ const {
         </div>
       </div>
     </footer>
+    <Analytics />
   </body>
 </html>
