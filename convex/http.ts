@@ -51,6 +51,7 @@ registerRoutes(http, components.stripe, {
         customerName,
         email,
         phone,
+        stripeCustomerId: (session.customer as string) || undefined,
         orderType,
         itemDescription,
         lineItems,

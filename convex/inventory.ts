@@ -159,6 +159,7 @@ export const upsertFromStripe = internalMutation({
     unitAmount: v.optional(v.number()),
     currency: v.optional(v.string()),
     priceType: v.optional(v.union(v.literal("one_time"), v.literal("recurring"))),
+    playerType: v.optional(v.union(v.literal("boys"), v.literal("girls"), v.literal("goalies"))),
   },
   handler: async (ctx, args) => {
     const { existingId, priceId, ...fields } = args;
@@ -225,6 +226,8 @@ export const syncFromStripe = action({
       const category = toCategory(product.metadata?.category);
       const showInShop = product.metadata?.shop === "true";
       const showInBuilder = product.metadata?.builder === "true";
+      const rawPlayerType = product.metadata?.playerType;
+      const playerType = (rawPlayerType === "boys" || rawPlayerType === "girls" || rawPlayerType === "goalies") ? rawPlayerType : undefined;
 
       const priceData = typeof priceObj === "object" && priceObj !== null ? priceObj : undefined;
       const priceType: "one_time" | "recurring" = priceData?.type === "recurring" ? "recurring" : "one_time";
@@ -242,6 +245,7 @@ export const syncFromStripe = action({
         unitAmount: priceData?.unit_amount ?? undefined,
         currency: priceData?.currency ?? "usd",
         priceType,
+        playerType,
       });
 
       if (result.action === "created") created++;
@@ -286,3 +290,4 @@ export const decrementStock = internalMutation({
     return { newStock };
   }
 });
+

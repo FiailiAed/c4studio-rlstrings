@@ -1,0 +1,97 @@
+---
+import DashboardLayout from '../../../layouts/DashboardLayout.astro';
+import { getConvexClient } from '../../../lib/convex';
+import { api } from '../../../../convex/_generated/api';
+import OrderStatusManager from '../../../components/OrderStatusManager';
+import IslandLoader from '../../../components/IslandLoader.astro';
+
+const { id } = Astro.params;
+if (!id) return Astro.redirect('/admin/orders');
+
+const order = await getConvexClient().query(api.orders.getAdminOrderByPickupCode, { pickupCode: id });
+if (!order) return Astro.redirect('/admin/orders');
+
+const convexUrl = import.meta.env.PUBLIC_CONVEX_URL;
+
+const lineItems = order.lineItems ?? [];
+---
+
+<DashboardLayout
+  title={`Order #${order.pickupCode} | RL Strings Admin`}
+  activePage="Orders"
+  description="Order Detail"
+>
+  <div class="mx-auto max-w-5xl px-3 py-8 sm:px-4 sm:py-10 lg:px-8 space-y-6 pb-24">
+    <!-- Back link + header -->
+    <div>
+      <a href="/admin/orders" class="text-sm text-slate-400 hover:text-white transition-colors">&larr; Back to Orders</a>
+      <div class="mt-2 flex flex-wrap items-center gap-3">
+        <h2 class="text-xl sm:text-2xl font-bold tracking-tight text-white">Order #{order.pickupCode}</h2>
+        <span class={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${order.orderType === 'service' ? 'bg-indigo-500/20 text-indigo-400' : 'bg-emerald-500/20 text-emerald-400'}`}>
+          {order.orderType}
+        </span>
+      </div>
+    </div>
+
+    <!-- Real-time Status (Controls + Timeline + Fixed Bottom Bar) -->
+    <IslandLoader>
+      <OrderStatusManager
+        client:load
+        pickupCode={order.pickupCode}
+        convexUrl={convexUrl}
+        lineItems={JSON.stringify(lineItems)}
+        itemDescription={order.itemDescription ?? ''}
+      />
+    </IslandLoader>
+
+    <!-- Customer & Payment Info -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <!-- Customer Info -->
+      <div class="bg-slate-800/30 rounded-lg ring-1 ring-slate-700 p-4">
+        <h3 class="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-3">Customer Info</h3>
+        <dl class="space-y-2 text-sm">
+          <div class="flex justify-between">
+            <dt class="text-slate-400">Name</dt>
+            <dd class="text-slate-200">{order.customerName}</dd>
+          </div>
+          <div class="flex justify-between">
+            <dt class="text-slate-400">Email</dt>
+            <dd><a href={`mailto:${order.email}`} class="text-indigo-400 hover:text-indigo-300 transition-colors">{order.email}</a></dd>
+          </div>
+          {order.phone && (
+            <div class="flex justify-between">
+              <dt class="text-slate-400">Phone</dt>
+              <dd class="text-slate-200">{order.phone}</dd>
+            </div>
+          )}
+          {order.stripeCustomerId && (
+            <div class="flex justify-between">
+              <dt class="text-slate-400">Stripe ID</dt>
+              <dd class="text-slate-500 font-mono text-xs">{order.stripeCustomerId}</dd>
+            </div>
+          )}
+        </dl>
+      </div>
+
+      <!-- Payment Info -->
+      <div class="bg-slate-800/30 rounded-lg ring-1 ring-slate-700 p-4">
+        <h3 class="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-3">Payment Info</h3>
+        <dl class="space-y-2 text-sm">
+          <div class="flex justify-between">
+            <dt class="text-slate-400">Amount</dt>
+            <dd class="text-white font-medium">{lineItems.length > 0 ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(lineItems.reduce((acc: number, item: any) => acc + item.totalAmount, 0) / 100) : '—'}</dd>
+          </div>
+          <div class="flex justify-between">
+            <dt class="text-slate-400">Status</dt>
+            <dd class="text-green-400">paid</dd>
+          </div>
+          <div class="flex justify-between">
+            <dt class="text-slate-400">Session</dt>
+            <dd class="text-slate-500 font-mono text-xs truncate max-w-[200px]">{order.stripeSessionId}</dd>
+          </div>
+        </dl>
+      </div>
+    </div>
+
+  </div>
+</DashboardLayout>

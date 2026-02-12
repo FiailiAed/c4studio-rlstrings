@@ -1,6 +1,7 @@
 ---
 import DashboardLayout from '../../layouts/DashboardLayout.astro';
 import HealthDashboard from '../../components/HealthDashboard';
+import IslandLoader from '../../components/IslandLoader.astro';
 import { getAllHealthStatus } from '../../lib/health-checks';
 
 // Get authentication from Clerk middleware
@@ -66,7 +67,9 @@ const healthStatus = await getAllHealthStatus(userId);
     </header>
 
     <!-- Health Dashboard React Component -->
-    <HealthDashboard client:load initialStatus={healthStatus} />
+    <IslandLoader>
+      <HealthDashboard client:load initialStatus={healthStatus} />
+    </IslandLoader>
 
     <!-- Additional Info Cards -->
     <div class="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4">

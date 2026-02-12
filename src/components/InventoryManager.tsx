@@ -20,12 +20,19 @@ export type InventoryItem = {
   unitAmount?: number;
   currency?: string;
   priceType?: 'one_time' | 'recurring';
+  playerType?: 'boys' | 'girls' | 'goalies';
 };
 
 interface InventoryManagerProps {
   initialItems: InventoryItem[];
   convexUrl: string;
 }
+
+const playerTypeColor: Record<string, string> = {
+  boys:   'bg-sky-500/20 text-sky-400',
+  girls:  'bg-fuchsia-500/20 text-fuchsia-400',
+  goalies: 'bg-amber-500/20 text-amber-400',
+};
 
 const categoryColor: Record<string, string> = {
   head:    'bg-blue-500/20 text-blue-400',
@@ -183,12 +190,17 @@ export default function InventoryManager({ initialItems, convexUrl }: InventoryM
                 </span>
               </div>
               <p className="text-xs font-mono text-slate-500 truncate">{item.priceId}</p>
-              <div className="flex items-center gap-1.5">
+              <div className="flex flex-wrap items-center gap-1.5">
                 {item.showInShop && (
                   <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium bg-emerald-500/20 text-emerald-400">Shop</span>
                 )}
                 {item.showInBuilder && (
                   <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium bg-indigo-500/20 text-indigo-400">Builder</span>
+                )}
+                {item.playerType && (
+                  <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${playerTypeColor[item.playerType]}`}>
+                    {item.playerType}
+                  </span>
                 )}
               </div>
               <div className="flex items-center justify-between pt-1">
@@ -233,6 +245,7 @@ export default function InventoryManager({ initialItems, convexUrl }: InventoryM
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-400">Category</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-400">Price ID</th>
                 <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide text-slate-400">Visibility</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide text-slate-400">Player Type</th>
                 <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide text-slate-400">Stock</th>
                 <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide text-slate-400">Actions</th>
               </tr>
@@ -259,6 +272,15 @@ export default function InventoryManager({ initialItems, convexUrl }: InventoryM
                         <span className="text-[10px] text-slate-600">—</span>
                       )}
                     </div>
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-3 text-center">
+                    {item.playerType ? (
+                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${playerTypeColor[item.playerType]}`}>
+                        {item.playerType}
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-slate-600">—</span>
+                    )}
                   </td>
                   <td className={`whitespace-nowrap px-4 py-3 text-sm text-center ${stockColor(item.stock)}`}>
                     {item.stock}

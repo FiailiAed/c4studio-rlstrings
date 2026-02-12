@@ -40,8 +40,9 @@ export const createSubscriptionCheckout = action({
 // Create a public (unauthenticated) checkout session for a one-time or subscription payment
 export const createPublicCheckout = action({
   args: {
-    priceId: v.string(),
+    items: v.array(v.object({ priceId: v.string(), quantity: v.number() })),
     mode: v.union(v.literal("payment"), v.literal("subscription")),
+    pocketPreference: v.optional(v.string()),
   },
   returns: v.object({
     sessionId: v.string(),
@@ -50,6 +51,7 @@ export const createPublicCheckout = action({
   handler: async (ctx, args): Promise<{ sessionId: string; url: string | null }> => {
     const stripeKey = process.env.STRIPE_SECRET_KEY;
     if (!stripeKey) throw new Error("STRIPE_SECRET_KEY not configured");
+    if (args.items.length === 0) throw new Error("No items provided");
 
     const origin = process.env.SITE_URL ?? "https://rlstrings.com";
 
@@ -63,14 +65,18 @@ export const createPublicCheckout = action({
     if (!pickupCode) throw new Error("Could not generate a unique pickup code. Please try again.");
 
     const body = new URLSearchParams({
-      "line_items[0][price]": args.priceId,
-      "line_items[0][quantity]": "1",
       mode: args.mode,
       customer_creation: "always",
       "metadata[orderType]": "product",
       "metadata[pickupCode]": pickupCode,
+      ...(args.pocketPreference ? { "metadata[pocketPreference]": args.pocketPreference } : {}),
       success_url: `${origin}/order/${pickupCode}`,
       cancel_url: `${origin}/shop`,
+    });
+
+    args.items.forEach((item, i) => {
+      body.append(`line_items[${i}][price]`, item.priceId);
+      body.append(`line_items[${i}][quantity]`, String(item.quantity));
     });
 
     const res = await fetch("https://api.stripe.com/v1/checkout/sessions", {

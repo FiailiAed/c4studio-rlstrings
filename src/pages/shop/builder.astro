@@ -1,7 +1,8 @@
 ---
-import MainLayout from '../../layouts/MainLayout.astro';
-import type { ProductCardData } from '../../components/StripeShopCheckout';
-import StripeShopCheckout from '../../components/StripeShopCheckout';
+import BuilderLayout from '../../layouts/BuilderLayout.astro';
+import BuilderWizard from '../../components/BuilderWizard';
+import type { BuilderProduct } from '../../components/BuilderWizard';
+import IslandLoader from '../../components/IslandLoader.astro';
 import { ConvexHttpClient } from 'convex/browser';
 import { api } from '../../../convex/_generated/api';
 
@@ -9,7 +10,7 @@ const convexUrl = import.meta.env.PUBLIC_CONVEX_URL;
 const client = new ConvexHttpClient(convexUrl);
 const builderItems = await client.query(api.inventory.getBuilderProducts, {});
 
-const products: ProductCardData[] = builderItems.map((item) => ({
+const products: BuilderProduct[] = builderItems.map((item) => ({
   id: item._id,
   name: item.name,
   description: item.description ?? null,
@@ -18,20 +19,23 @@ const products: ProductCardData[] = builderItems.map((item) => ({
   priceAmount: item.unitAmount ?? null,
   priceCurrency: item.currency ?? 'usd',
   priceType: item.priceType === 'recurring' ? 'recurring' : 'one_time',
+  category: item.category ?? 'service',
+  playerType: item.playerType ?? undefined,
 }));
 ---
 
-<MainLayout
+<BuilderLayout
   title="RL Strings | Pocket Builder"
   description="Stop settling for factory trash. Custom built, professionally strung."
 >
-
-  <section>
-      <!-- Headline -->
-      <h1 class="text-6xl md:text-8xl font-black tracking-tighter mb-6 leading-[0.9] uppercase">
-        This is the <span class="text-transparent bg-clip-text bg-gradient-to-br from-red-500 to-red-700">BUILDER.</span>
-      </h1>
+  <section class="mb-8">
+    <h1 class="text-3xl sm:text-4xl md:text-6xl font-black tracking-tighter mb-2 leading-[0.9] uppercase">
+      Build Your <span class="text-transparent bg-clip-text bg-gradient-to-br from-red-500 to-red-700">Pocket.</span>
+    </h1>
+    <p class="text-sm text-neutral-400">Select your components step by step. Service is required.</p>
   </section>
-  <StripeShopCheckout client:load products={products} convexUrl={convexUrl} />
 
-</MainLayout>
+  <IslandLoader>
+    <BuilderWizard client:load products={products} convexUrl={convexUrl} />
+  </IslandLoader>
+</BuilderLayout>

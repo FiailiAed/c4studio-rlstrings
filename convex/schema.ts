@@ -8,18 +8,37 @@ export default defineSchema({
     phone: v.optional(v.string()),
     stripeSessionId: v.string(),
     // Order Status Logic - LFG
+    stripeCustomerId: v.optional(v.string()),
     status: v.union(
-      v.literal("paid"),           // Payment received via Stripe
-      v.literal("dropped_off"),    // Parent scanned QR at Stellar
-      v.literal("in_progress"),    // Todd is stringing it
-      v.literal("ready_for_pickup"),// Todd clicked "Done"
-      v.literal("completed")       // Parent scanned QR to pick up
+      v.literal("paid"),                // Payment received via Stripe
+      v.literal("dropped_off"),         // Customer dropped off at Stellar
+      v.literal("picked_up"),           // Stringer picked up the order
+      v.literal("stringing"),           // Stringing in progress
+      v.literal("strung"),              // Stringing complete
+      v.literal("ready_for_pickup"),    // Dropped back at Stellar, awaiting customer
+      v.literal("picked_up_by_customer"), // Customer picked up
+      v.literal("review"),              // Awaiting customer review
+      v.literal("completed"),           // Done
+      // Legacy statuses — kept for existing data compatibility
+      v.literal("in_progress"),
+      v.literal("on_hold"),
+      v.literal("customer_review")
     ),
     orderType: v.union(v.literal("service"), v.literal("product")),
     itemDescription: v.string(),   // e.g. "Signature Mesh Re-string"
     pickupCode: v.string(),        // Simple 4-digit code for the hand-off
     droppedOffAt: v.optional(v.number()),
+    pickedUpAt: v.optional(v.number()),
+    stringingAt: v.optional(v.number()),
+    strungAt: v.optional(v.number()),
+    readyForPickupAt: v.optional(v.number()),
+    pickedUpByCustomerAt: v.optional(v.number()),
+    reviewAt: v.optional(v.number()),
     completedAt: v.optional(v.number()),
+    // Legacy fields — kept for backwards compatibility with existing data
+    inProgressAt: v.optional(v.number()),
+    onHoldAt: v.optional(v.number()),
+    customerReviewAt: v.optional(v.number()),
     lineItems: v.optional(v.array(v.object({
       priceId: v.string(),
       productName: v.string(),
@@ -57,5 +76,6 @@ export default defineSchema({
     unitAmount: v.optional(v.number()),
     currency: v.optional(v.string()),
     priceType: v.optional(v.union(v.literal("one_time"), v.literal("recurring"))),
+    playerType: v.optional(v.union(v.literal("boys"), v.literal("girls"), v.literal("goalies"))),
   }).index("by_priceId", ["priceId"]),
 });

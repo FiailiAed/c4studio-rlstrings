@@ -1,7 +1,7 @@
 ---
-import DashboardLayout from '../../layouts/DashboardLayout.astro';
-import { getConvexClient } from '../../lib/convex';
-import { api } from '../../../convex/_generated/api';
+import DashboardLayout from '../../../layouts/DashboardLayout.astro';
+import { getConvexClient } from '../../../lib/convex';
+import { api } from '../../../../convex/_generated/api';
 
 const orders = await getConvexClient().query(api.orders.listOrders, {});
 
@@ -25,11 +25,15 @@ function orderTotal(lineItems?: { totalAmount: number }[]): string {
 }
 
 const statusColor: Record<string, string> = {
-  paid:             'bg-green-500/20 text-green-400',
-  dropped_off:      'bg-blue-500/20 text-blue-400',
-  in_progress:      'bg-yellow-500/20 text-yellow-400',
-  ready_for_pickup: 'bg-purple-500/20 text-purple-400',
-  completed:        'bg-slate-500/20 text-slate-300',
+  paid:                  'bg-green-500/20 text-green-400',
+  dropped_off:           'bg-blue-500/20 text-blue-400',
+  picked_up:             'bg-cyan-500/20 text-cyan-400',
+  stringing:             'bg-yellow-500/20 text-yellow-400',
+  strung:                'bg-amber-500/20 text-amber-400',
+  ready_for_pickup:      'bg-purple-500/20 text-purple-400',
+  picked_up_by_customer: 'bg-teal-500/20 text-teal-400',
+  review:                'bg-pink-500/20 text-pink-400',
+  completed:             'bg-slate-500/20 text-slate-300',
 };
 ---
 
@@ -38,13 +42,40 @@ const statusColor: Record<string, string> = {
   activePage="Orders"
   description="Orders Dashboard"
 >
-  <div class="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
-    <h2 class="text-2xl font-bold tracking-tight text-white">Orders</h2>
+  <div class="mx-auto max-w-7xl px-3 py-8 sm:px-4 sm:py-16 lg:px-8">
+    <h2 class="text-xl sm:text-2xl font-bold tracking-tight text-white">Orders</h2>
 
     {orders.length === 0 ? (
       <p class="mt-6 text-slate-400">No orders found.</p>
     ) : (
-      <div class="mt-6 overflow-x-auto rounded-lg ring-1 ring-slate-700">
+      <>
+      {/* Mobile cards */}
+      <div class="mt-6 flex flex-col gap-3 md:hidden">
+        {orders.map((order) => (
+          <a href={`/admin/orders/${order.pickupCode}`} class="block rounded-lg bg-slate-800/50 ring-1 ring-slate-700 p-4 space-y-2 hover:bg-slate-800/70 transition-colors">
+            <div class="flex items-center justify-between">
+              <span class="text-xs text-slate-400">{formatDate(order._creationTime)}</span>
+              <span class={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${statusColor[order.status] ?? 'bg-slate-700 text-slate-300'}`}>
+                {order.status.replace(/_/g, ' ')}
+              </span>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-sm font-medium text-slate-200">{order.customerName}</span>
+              <span class="text-sm font-medium text-white">{orderTotal(order.lineItems)}</span>
+            </div>
+            <p class="text-xs text-slate-400 truncate">{order.email}</p>
+            <p class="text-sm text-slate-300 line-clamp-2">{order.itemDescription}</p>
+            {order.pickupCode && (
+              <div class="flex items-center justify-between pt-1 border-t border-slate-700">
+                <span class="text-xs text-slate-500">Pickup</span>
+                <span class="text-xs font-mono text-slate-200">{order.pickupCode}</span>
+              </div>
+            )}
+          </a>
+        ))}
+      </div>
+      {/* Desktop table */}
+      <div class="mt-6 hidden md:block overflow-x-auto rounded-lg ring-1 ring-slate-700">
         <table class="min-w-full divide-y divide-slate-700">
           <thead class="bg-slate-800">
             <tr>
@@ -59,7 +90,7 @@ const statusColor: Record<string, string> = {
           </thead>
           <tbody class="divide-y divide-slate-800 bg-slate-900">
             {orders.map((order) => (
-              <tr class="hover:bg-slate-800/50 transition-colors">
+              <tr class="hover:bg-slate-800/50 transition-colors cursor-pointer" onclick={`window.location='/admin/orders/${order.pickupCode}'`}>
                 <td class="whitespace-nowrap px-4 py-3 text-sm text-slate-300">{formatDate(order._creationTime)}</td>
                 <td class="px-4 py-3 text-sm text-slate-200">{order.customerName}</td>
                 <td class="px-4 py-3 text-sm text-slate-400">{order.email}</td>
@@ -78,6 +109,7 @@ const statusColor: Record<string, string> = {
           </tbody>
         </table>
       </div>
+      </>
     )}
   </div>
 </DashboardLayout>

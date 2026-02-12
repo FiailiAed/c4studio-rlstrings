@@ -2,6 +2,7 @@
 import MainLayout from '../../layouts/MainLayout.astro';
 import type { ProductCardData } from '../../components/StripeShopCheckout';
 import StripeShopCheckout from '../../components/StripeShopCheckout';
+import IslandLoader from '../../components/IslandLoader.astro';
 import { ConvexHttpClient } from 'convex/browser';
 import { api } from '../../../convex/_generated/api';
 
@@ -26,12 +27,8 @@ const products: ProductCardData[] = shopItems.map((item) => ({
   description="Stop settling for factory trash. Custom built, professionally strung."
 >
 
-  <section>
-      <!-- Headline -->
-      <h1 class="text-6xl md:text-8xl font-black tracking-tighter mb-6 leading-[0.9] uppercase">
-        This is the <span class="text-transparent bg-clip-text bg-gradient-to-br from-red-500 to-red-700">SHOP.</span>
-      </h1>
-  </section>
+<IslandLoader>
   <StripeShopCheckout client:load products={products} convexUrl={convexUrl} />
+</IslandLoader>
 
 </MainLayout>

@@ -3,6 +3,7 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
 import { getProducts } from '../../lib/stripe';
 import type { ProductCardData } from '../../components/StripeCheckoutTest';
 import StripeCheckoutTest from '../../components/StripeCheckoutTest';
+import IslandLoader from '../../components/IslandLoader.astro';
 
 const rawProducts = await getProducts();
 
@@ -28,5 +29,7 @@ const convexUrl = import.meta.env.PUBLIC_CONVEX_URL;
   activePage="Testing"
   description="Order Fullfillment Lifecycle Management Portal"
 >
-  <StripeCheckoutTest client:load products={products} convexUrl={convexUrl} />
+  <IslandLoader>
+    <StripeCheckoutTest client:load products={products} convexUrl={convexUrl} />
+  </IslandLoader>
 </DashboardLayout>
