@@ -1,0 +1,794 @@
+---
+import ShopLayout from '../../layouts/ShopLayout.astro';
+import { ConvexHttpClient } from 'convex/browser';
+import { api } from '../../../convex/_generated/api';
+
+const convexUrl = import.meta.env.PUBLIC_CONVEX_URL;
+const client = new ConvexHttpClient(convexUrl);
+
+// Fetch builder products (showInBuilder=true, stock>0)
+const allProducts = await client.query(api.inventory.getBuilderProducts, {});
+
+// Transform to a clean shape
+const products = allProducts.map((item) => ({
+  id: item._id,
+  name: item.name,
+  description: item.description ?? null,
+  images: item.images ?? [],
+  priceId: item.priceId ?? null,
+  priceAmount: item.unitAmount ?? null,
+  currency: item.currency ?? 'usd',
+  category: item.category ?? 'service',
+  playerType: (item as any).playerType ?? null,
+}));
+
+// Group by category
+const serviceProducts = products.filter((p) => p.category === 'service');
+const headProducts = products.filter((p) => p.category === 'head');
+const meshProducts = products.filter((p) => p.category === 'mesh');
+const stringsProducts = products.filter((p) => p.category === 'strings');
+const upsellProducts = products.filter((p) => p.category === 'upsell');
+
+const POCKET_OPTIONS = ['High', 'Mid', 'Low', 'Re-Create My Pocket'];
+
+function formatPrice(cents: number | null, currency: string = 'usd'): string {
+  if (cents === null) return 'Contact for price';
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: currency.toUpperCase(),
+  }).format(cents / 100);
+}
+
+// Default hero image (first service product with an image, or fallback)
+const defaultHero = products.find((p) => p.images.length > 0)?.images[0] ?? '';
+---
+
+<ShopLayout
+  title="RL Strings | Build Your Pocket"
+  description="Build your custom lacrosse pocket. Choose your service, head, mesh, strings, and pocket style."
+>
+  <div class="max-w-7xl mx-auto px-4 py-8">
+    <div class="lg:grid lg:grid-cols-12 lg:gap-12">
+
+      <!-- ===== LEFT COLUMN (Sticky) ===== -->
+      <div class="lg:col-span-5">
+        <div class="lg:sticky lg:top-20">
+          <!-- Hero Image -->
+          <div class="bg-white rounded-xl border border-gray-200 overflow-hidden mb-6">
+            {defaultHero ? (
+              <img
+                id="hero-img"
+                src={defaultHero}
+                alt="Selected product"
+                class="w-full aspect-square object-cover"
+                width="600"
+                height="600"
+              />
+            ) : (
+              <div id="hero-img-placeholder" class="w-full aspect-square bg-gray-100 flex items-center justify-center">
+                <svg class="w-16 h-16 text-gray-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                  <circle cx="8.5" cy="8.5" r="1.5" />
+                  <polyline points="21 15 16 10 5 21" />
+                </svg>
+              </div>
+            )}
+          </div>
+
+          <!-- Heading -->
+          <h1 class="text-3xl font-black mb-2">Build Your Pocket</h1>
+          <p class="text-gray-500 text-sm mb-6">Custom built. Professionally strung. Pick your parts below.</p>
+
+          <!-- Desktop Checkout Summary -->
+          <div id="desktop-summary" class="hidden lg:block bg-white rounded-xl border border-gray-200 p-5">
+            <div class="flex items-center justify-between mb-4">
+              <span class="text-sm text-gray-500"><span id="d-count">0</span> items selected</span>
+              <span id="d-total" class="text-xl font-black">$0.00</span>
+            </div>
+            <button
+              id="d-checkout-btn"
+              disabled
+              class="w-full bg-black text-white py-3 font-bold rounded-lg hover:bg-gray-800 transition disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Checkout
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== RIGHT COLUMN ===== -->
+      <div class="lg:col-span-7 space-y-6 mt-8 lg:mt-0">
+
+        <!-- SECTION 1: Service Type -->
+        <section class="bg-white rounded-xl border border-gray-200 overflow-hidden" data-section="service">
+          <button type="button" class="section-toggle w-full flex items-center justify-between p-5 text-left">
+            <div class="flex items-center gap-3">
+              <span class="w-7 h-7 rounded-full bg-black text-white text-sm font-bold flex items-center justify-center">1</span>
+              <h2 class="font-bold text-lg">Service Type</h2>
+              <span class="text-xs text-red-600 font-semibold uppercase">Required</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <svg class="section-check w-5 h-5 text-green-500 hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12" /></svg>
+              <svg class="section-chevron w-5 h-5 text-gray-400 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9" /></svg>
+            </div>
+          </button>
+          <div class="section-body px-5 pb-5">
+            {serviceProducts.length > 0 ? (
+              <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {serviceProducts.map((p) => (
+                  <button
+                    type="button"
+                    class="product-btn border-2 border-gray-200 rounded-lg p-4 text-center hover:border-black transition"
+                    data-section="service"
+                    data-product-id={p.id}
+                    data-price-id={p.priceId}
+                    data-price-amount={p.priceAmount}
+                    data-currency={p.currency}
+                    data-player-type={p.playerType ?? ''}
+                    data-image={p.images[0] ?? ''}
+                    data-name={p.name}
+                  >
+                    <div class="font-semibold text-sm">{p.name}</div>
+                    <div class="text-xs text-gray-500 mt-1">{formatPrice(p.priceAmount, p.currency)}</div>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p class="text-gray-500 text-sm">No services available at the moment.</p>
+            )}
+          </div>
+        </section>
+
+        <!-- SECTION 2: Head -->
+        <section class="bg-white rounded-xl border border-gray-200 overflow-hidden" data-section="head">
+          <button type="button" class="section-toggle w-full flex items-center justify-between p-5 text-left">
+            <div class="flex items-center gap-3">
+              <span class="w-7 h-7 rounded-full bg-black text-white text-sm font-bold flex items-center justify-center">2</span>
+              <h2 class="font-bold text-lg">Head</h2>
+              <span class="text-xs text-red-600 font-semibold uppercase">Required</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <svg class="section-check w-5 h-5 text-green-500 hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12" /></svg>
+              <svg class="section-chevron w-5 h-5 text-gray-400 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9" /></svg>
+            </div>
+          </button>
+          <div class="section-body px-5 pb-5">
+            <!-- BYO Head Toggle -->
+            <label class="flex items-center gap-3 mb-4 cursor-pointer select-none">
+              <input type="checkbox" id="byo-head" class="w-5 h-5 accent-black rounded" />
+              <span class="text-sm font-medium">I'm bringing my own head</span>
+            </label>
+            <div id="head-products">
+              {headProducts.length > 0 ? (
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {headProducts.map((p) => (
+                    <button
+                      type="button"
+                      class="product-btn border-2 border-gray-200 rounded-lg overflow-hidden text-left hover:border-black transition"
+                      data-section="head"
+                      data-product-id={p.id}
+                      data-price-id={p.priceId}
+                      data-price-amount={p.priceAmount}
+                      data-currency={p.currency}
+                      data-player-type={p.playerType ?? ''}
+                      data-image={p.images[0] ?? ''}
+                      data-name={p.name}
+                    >
+                      {p.images[0] ? (
+                        <img src={p.images[0]} alt={p.name} class="w-full aspect-square object-cover" loading="lazy" width="200" height="200" />
+                      ) : (
+                        <div class="w-full aspect-square bg-gray-100 flex items-center justify-center">
+                          <svg class="w-8 h-8 text-gray-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg>
+                        </div>
+                      )}
+                      <div class="p-2">
+                        <div class="font-semibold text-xs line-clamp-2">{p.name}</div>
+                        <div class="text-xs text-gray-500 mt-0.5">{formatPrice(p.priceAmount, p.currency)}</div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p class="text-gray-500 text-sm">No heads available at the moment.</p>
+              )}
+            </div>
+          </div>
+        </section>
+
+        <!-- SECTION 3: Mesh -->
+        <section class="bg-white rounded-xl border border-gray-200 overflow-hidden" data-section="mesh">
+          <button type="button" class="section-toggle w-full flex items-center justify-between p-5 text-left">
+            <div class="flex items-center gap-3">
+              <span class="w-7 h-7 rounded-full bg-black text-white text-sm font-bold flex items-center justify-center">3</span>
+              <h2 class="font-bold text-lg">Mesh</h2>
+              <span class="text-xs text-red-600 font-semibold uppercase">Required</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <svg class="section-check w-5 h-5 text-green-500 hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12" /></svg>
+              <svg class="section-chevron w-5 h-5 text-gray-400 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9" /></svg>
+            </div>
+          </button>
+          <div class="section-body px-5 pb-5">
+            {meshProducts.length > 0 ? (
+              <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {meshProducts.map((p) => (
+                  <button
+                    type="button"
+                    class="product-btn border-2 border-gray-200 rounded-lg overflow-hidden text-left hover:border-black transition"
+                    data-section="mesh"
+                    data-product-id={p.id}
+                    data-price-id={p.priceId}
+                    data-price-amount={p.priceAmount}
+                    data-currency={p.currency}
+                    data-player-type={p.playerType ?? ''}
+                    data-image={p.images[0] ?? ''}
+                    data-name={p.name}
+                  >
+                    {p.images[0] ? (
+                      <img src={p.images[0]} alt={p.name} class="w-full aspect-square object-cover" loading="lazy" width="200" height="200" />
+                    ) : (
+                      <div class="w-full aspect-square bg-gray-100 flex items-center justify-center">
+                        <svg class="w-8 h-8 text-gray-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg>
+                      </div>
+                    )}
+                    <div class="p-2">
+                      <div class="font-semibold text-xs line-clamp-2">{p.name}</div>
+                      <div class="text-xs text-gray-500 mt-0.5">{formatPrice(p.priceAmount, p.currency)}</div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p class="text-gray-500 text-sm">No mesh available at the moment.</p>
+            )}
+          </div>
+        </section>
+
+        <!-- SECTION 4: Strings -->
+        <section class="bg-white rounded-xl border border-gray-200 overflow-hidden" data-section="strings">
+          <button type="button" class="section-toggle w-full flex items-center justify-between p-5 text-left">
+            <div class="flex items-center gap-3">
+              <span class="w-7 h-7 rounded-full bg-black text-white text-sm font-bold flex items-center justify-center">4</span>
+              <h2 class="font-bold text-lg">Strings</h2>
+              <span class="text-xs text-red-600 font-semibold uppercase">Required</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <svg class="section-check w-5 h-5 text-green-500 hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12" /></svg>
+              <svg class="section-chevron w-5 h-5 text-gray-400 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9" /></svg>
+            </div>
+          </button>
+          <div class="section-body px-5 pb-5">
+            {stringsProducts.length > 0 ? (
+              <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {stringsProducts.map((p) => (
+                  <button
+                    type="button"
+                    class="product-btn border-2 border-gray-200 rounded-lg overflow-hidden text-left hover:border-black transition"
+                    data-section="strings"
+                    data-product-id={p.id}
+                    data-price-id={p.priceId}
+                    data-price-amount={p.priceAmount}
+                    data-currency={p.currency}
+                    data-player-type={p.playerType ?? ''}
+                    data-image={p.images[0] ?? ''}
+                    data-name={p.name}
+                  >
+                    {p.images[0] ? (
+                      <img src={p.images[0]} alt={p.name} class="w-full aspect-square object-cover" loading="lazy" width="200" height="200" />
+                    ) : (
+                      <div class="w-full aspect-square bg-gray-100 flex items-center justify-center">
+                        <svg class="w-8 h-8 text-gray-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg>
+                      </div>
+                    )}
+                    <div class="p-2">
+                      <div class="font-semibold text-xs line-clamp-2">{p.name}</div>
+                      <div class="text-xs text-gray-500 mt-0.5">{formatPrice(p.priceAmount, p.currency)}</div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p class="text-gray-500 text-sm">No strings available at the moment.</p>
+            )}
+          </div>
+        </section>
+
+        <!-- SECTION 5: Pocket Preference -->
+        <section class="bg-white rounded-xl border border-gray-200 overflow-hidden" data-section="pocket">
+          <button type="button" class="section-toggle w-full flex items-center justify-between p-5 text-left">
+            <div class="flex items-center gap-3">
+              <span class="w-7 h-7 rounded-full bg-black text-white text-sm font-bold flex items-center justify-center">5</span>
+              <h2 class="font-bold text-lg">Pocket Preference</h2>
+              <span class="text-xs text-red-600 font-semibold uppercase">Required</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <svg class="section-check w-5 h-5 text-green-500 hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12" /></svg>
+              <svg class="section-chevron w-5 h-5 text-gray-400 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9" /></svg>
+            </div>
+          </button>
+          <div class="section-body px-5 pb-5">
+            <div class="grid grid-cols-2 gap-3">
+              {POCKET_OPTIONS.map((opt) => (
+                <button
+                  type="button"
+                  class="pocket-btn border-2 border-gray-200 rounded-lg p-4 text-center font-semibold text-sm hover:border-black transition"
+                  data-pocket={opt}
+                >
+                  {opt}
+                </button>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <!-- SECTION 6: Extras (optional, multi-select) -->
+        <section class="bg-white rounded-xl border border-gray-200 overflow-hidden" data-section="upsell">
+          <button type="button" class="section-toggle w-full flex items-center justify-between p-5 text-left">
+            <div class="flex items-center gap-3">
+              <span class="w-7 h-7 rounded-full bg-gray-300 text-white text-sm font-bold flex items-center justify-center">6</span>
+              <h2 class="font-bold text-lg">Extras</h2>
+              <span class="text-xs text-gray-400 font-semibold uppercase">Optional</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <svg class="section-check w-5 h-5 text-green-500 hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12" /></svg>
+              <svg class="section-chevron w-5 h-5 text-gray-400 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9" /></svg>
+            </div>
+          </button>
+          <div class="section-body px-5 pb-5">
+            {upsellProducts.length > 0 ? (
+              <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {upsellProducts.map((p) => (
+                  <button
+                    type="button"
+                    class="product-btn border-2 border-gray-200 rounded-lg overflow-hidden text-left hover:border-black transition"
+                    data-section="upsell"
+                    data-product-id={p.id}
+                    data-price-id={p.priceId}
+                    data-price-amount={p.priceAmount}
+                    data-currency={p.currency}
+                    data-player-type={p.playerType ?? ''}
+                    data-image={p.images[0] ?? ''}
+                    data-name={p.name}
+                  >
+                    {p.images[0] ? (
+                      <img src={p.images[0]} alt={p.name} class="w-full aspect-square object-cover" loading="lazy" width="200" height="200" />
+                    ) : (
+                      <div class="w-full aspect-square bg-gray-100 flex items-center justify-center">
+                        <svg class="w-8 h-8 text-gray-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg>
+                      </div>
+                    )}
+                    <div class="p-2">
+                      <div class="font-semibold text-xs line-clamp-2">{p.name}</div>
+                      <div class="text-xs text-gray-500 mt-0.5">{formatPrice(p.priceAmount, p.currency)}</div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p class="text-gray-500 text-sm">No extras available at the moment.</p>
+            )}
+          </div>
+        </section>
+
+        <!-- FAQ -->
+        <section class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <div class="p-5">
+            <h2 class="font-bold text-lg mb-4">Frequently Asked Questions</h2>
+            <div class="space-y-2">
+              <details class="group border border-gray-200 rounded-lg">
+                <summary class="cursor-pointer p-4 font-medium text-sm flex items-center justify-between">
+                  How long does stringing take?
+                  <svg class="w-4 h-4 text-gray-400 group-open:rotate-180 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9" /></svg>
+                </summary>
+                <div class="px-4 pb-4 text-sm text-gray-600">
+                  Most orders are completed within 2-3 business days. Rush orders may be available — contact us for details.
+                </div>
+              </details>
+              <details class="group border border-gray-200 rounded-lg">
+                <summary class="cursor-pointer p-4 font-medium text-sm flex items-center justify-between">
+                  Can I bring my own head?
+                  <svg class="w-4 h-4 text-gray-400 group-open:rotate-180 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9" /></svg>
+                </summary>
+                <div class="px-4 pb-4 text-sm text-gray-600">
+                  Absolutely! Check the "I'm bringing my own head" box in the Head section and drop your head off at Stellar Athletics.
+                </div>
+              </details>
+              <details class="group border border-gray-200 rounded-lg">
+                <summary class="cursor-pointer p-4 font-medium text-sm flex items-center justify-between">
+                  What's your guarantee?
+                  <svg class="w-4 h-4 text-gray-400 group-open:rotate-180 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9" /></svg>
+                </summary>
+                <div class="px-4 pb-4 text-sm text-gray-600">
+                  If your stick isn't performing exactly how you want it, we'll restring it for free. No questions asked.
+                </div>
+              </details>
+              <details class="group border border-gray-200 rounded-lg">
+                <summary class="cursor-pointer p-4 font-medium text-sm flex items-center justify-between">
+                  Where do I pick up my order?
+                  <svg class="w-4 h-4 text-gray-400 group-open:rotate-180 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9" /></svg>
+                </summary>
+                <div class="px-4 pb-4 text-sm text-gray-600">
+                  All orders are picked up at Stellar Athletics — 876 North Lenola Road, Moorestown, New Jersey 08057, United States. You'll receive a pickup code when your order is ready.
+                </div>
+              </details>
+            </div>
+          </div>
+        </section>
+
+      </div><!-- end right column -->
+    </div><!-- end grid -->
+  </div>
+
+  <!-- ===== MOBILE STICKY BOTTOM BAR ===== -->
+  <div
+    id="mobile-bar"
+    class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg translate-y-full transition-transform lg:hidden z-40"
+    style="padding-bottom: env(safe-area-inset-bottom, 0px);"
+  >
+    <div class="flex items-center justify-between px-4 py-3">
+      <div>
+        <span class="text-sm text-gray-500"><span id="m-count">0</span> items</span>
+        <span id="m-total" class="ml-2 text-lg font-black">$0.00</span>
+      </div>
+      <button
+        id="m-checkout-btn"
+        disabled
+        class="bg-black text-white px-6 py-2.5 font-bold rounded-lg hover:bg-gray-800 transition disabled:opacity-40 disabled:cursor-not-allowed text-sm"
+      >
+        Checkout
+      </button>
+    </div>
+  </div>
+
+  <!-- ===== INLINE VANILLA JS ===== -->
+  <script is:inline>
+    (function() {
+      // ---- STATE ----
+      var state = {
+        service: null,   // { id, priceId, amount, currency, playerType, image, name }
+        head: null,
+        mesh: null,
+        strings: null,
+        pocket: null,    // string
+        upsells: [],     // array of { id, priceId, amount, currency, image, name }
+        byoHead: false,
+      };
+
+      var isCheckingOut = false;
+
+      // ---- DOM REFS ----
+      var heroImg = document.getElementById('hero-img');
+      var dCount = document.getElementById('d-count');
+      var dTotal = document.getElementById('d-total');
+      var dCheckout = document.getElementById('d-checkout-btn');
+      var mBar = document.getElementById('mobile-bar');
+      var mCount = document.getElementById('m-count');
+      var mTotal = document.getElementById('m-total');
+      var mCheckout = document.getElementById('m-checkout-btn');
+      var byoCheckbox = document.getElementById('byo-head');
+      var headGrid = document.getElementById('head-products');
+
+      // ---- SECTION TOGGLES ----
+      document.querySelectorAll('.section-toggle').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          var body = btn.nextElementSibling;
+          if (!body) return;
+          var isHidden = body.classList.contains('hidden');
+          if (isHidden) {
+            body.classList.remove('hidden');
+            btn.querySelector('.section-chevron').style.transform = '';
+          } else {
+            body.classList.add('hidden');
+            btn.querySelector('.section-chevron').style.transform = 'rotate(-90deg)';
+          }
+        });
+      });
+
+      // ---- PRODUCT SELECTION (single-select per section) ----
+      document.querySelectorAll('.product-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          var section = btn.dataset.section;
+          if (!section) return;
+
+          var info = {
+            id: btn.dataset.productId,
+            priceId: btn.dataset.priceId,
+            amount: parseInt(btn.dataset.priceAmount) || 0,
+            currency: btn.dataset.currency || 'usd',
+            playerType: btn.dataset.playerType || null,
+            image: btn.dataset.image || '',
+            name: btn.dataset.name || '',
+          };
+
+          if (section === 'upsell') {
+            // Multi-select for upsells
+            var idx = state.upsells.findIndex(function(u) { return u.id === info.id; });
+            if (idx >= 0) {
+              state.upsells.splice(idx, 1);
+              btn.classList.remove('border-black', 'bg-gray-50');
+              btn.classList.add('border-gray-200');
+            } else {
+              state.upsells.push(info);
+              btn.classList.add('border-black', 'bg-gray-50');
+              btn.classList.remove('border-gray-200');
+            }
+          } else {
+            // Single-select: toggle off if same item clicked
+            var current = state[section];
+            var allBtns = document.querySelectorAll('.product-btn[data-section="' + section + '"]');
+
+            if (current && current.id === info.id) {
+              // Deselect
+              state[section] = null;
+              allBtns.forEach(function(b) {
+                b.classList.remove('border-black', 'bg-gray-50');
+                b.classList.add('border-gray-200');
+              });
+            } else {
+              // Select new
+              state[section] = info;
+              allBtns.forEach(function(b) {
+                b.classList.remove('border-black', 'bg-gray-50');
+                b.classList.add('border-gray-200');
+              });
+              btn.classList.add('border-black', 'bg-gray-50');
+              btn.classList.remove('border-gray-200');
+            }
+
+            // If service changed, apply playerType filtering
+            if (section === 'service') {
+              applyPlayerTypeFilter();
+            }
+
+            // Update hero image
+            if (info.image && state[section]) {
+              updateHero(info.image);
+            }
+          }
+
+          updateSummary();
+          updateCheckmarks();
+        });
+      });
+
+      // ---- POCKET SELECTION ----
+      document.querySelectorAll('.pocket-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          var pocket = btn.dataset.pocket;
+          var allPocketBtns = document.querySelectorAll('.pocket-btn');
+
+          if (state.pocket === pocket) {
+            // Deselect
+            state.pocket = null;
+            allPocketBtns.forEach(function(b) {
+              b.classList.remove('border-black', 'bg-gray-50');
+              b.classList.add('border-gray-200');
+            });
+          } else {
+            state.pocket = pocket;
+            allPocketBtns.forEach(function(b) {
+              b.classList.remove('border-black', 'bg-gray-50');
+              b.classList.add('border-gray-200');
+            });
+            btn.classList.add('border-black', 'bg-gray-50');
+            btn.classList.remove('border-gray-200');
+          }
+
+          updateSummary();
+          updateCheckmarks();
+        });
+      });
+
+      // ---- BYO HEAD TOGGLE ----
+      if (byoCheckbox) {
+        byoCheckbox.addEventListener('change', function() {
+          state.byoHead = byoCheckbox.checked;
+          if (state.byoHead) {
+            // Hide head product grid, clear head selection
+            if (headGrid) headGrid.classList.add('hidden');
+            state.head = null;
+            document.querySelectorAll('.product-btn[data-section="head"]').forEach(function(b) {
+              b.classList.remove('border-black', 'bg-gray-50');
+              b.classList.add('border-gray-200');
+            });
+          } else {
+            if (headGrid) headGrid.classList.remove('hidden');
+          }
+          updateSummary();
+          updateCheckmarks();
+        });
+      }
+
+      // ---- PLAYER TYPE FILTERING ----
+      function applyPlayerTypeFilter() {
+        var selectedType = state.service ? state.service.playerType : null;
+        var filteredSections = ['head', 'mesh'];
+
+        filteredSections.forEach(function(sec) {
+          var btns = document.querySelectorAll('.product-btn[data-section="' + sec + '"]');
+          var currentSelection = state[sec];
+          var selectionHidden = false;
+
+          btns.forEach(function(btn) {
+            var pt = btn.dataset.playerType;
+            // Show if: no filter, no playerType on product, or matches
+            if (!selectedType || !pt || pt === selectedType) {
+              btn.classList.remove('hidden');
+            } else {
+              btn.classList.add('hidden');
+              // If currently selected product is now hidden, deselect
+              if (currentSelection && currentSelection.id === btn.dataset.productId) {
+                selectionHidden = true;
+              }
+            }
+          });
+
+          if (selectionHidden) {
+            state[sec] = null;
+            btns.forEach(function(b) {
+              b.classList.remove('border-black', 'bg-gray-50');
+              b.classList.add('border-gray-200');
+            });
+          }
+        });
+      }
+
+      // ---- UPDATE HERO IMAGE ----
+      function updateHero(src) {
+        if (heroImg && src) {
+          heroImg.src = src;
+        }
+      }
+
+      // ---- UPDATE SUMMARY (totals + item count) ----
+      function updateSummary() {
+        var total = 0;
+        var count = 0;
+
+        ['service', 'head', 'mesh', 'strings'].forEach(function(key) {
+          if (state[key] && state[key].amount) {
+            total += state[key].amount;
+            count++;
+          }
+        });
+
+        state.upsells.forEach(function(u) {
+          if (u.amount) {
+            total += u.amount;
+            count++;
+          }
+        });
+
+        // Pocket counts as a selection but has no price
+        if (state.pocket) count++;
+        // BYO head counts as head selection (no price)
+        if (state.byoHead) count++;
+
+        var formatted = '$' + (total / 100).toFixed(2);
+
+        // Desktop
+        if (dCount) dCount.textContent = count;
+        if (dTotal) dTotal.textContent = formatted;
+
+        // Mobile
+        if (mCount) mCount.textContent = count;
+        if (mTotal) mTotal.textContent = formatted;
+
+        // Show/hide mobile bar
+        if (mBar) {
+          if (count > 0) {
+            mBar.classList.remove('translate-y-full');
+          } else {
+            mBar.classList.add('translate-y-full');
+          }
+        }
+
+        // Enable/disable checkout
+        var canCheckout = isReadyToCheckout();
+        if (dCheckout) dCheckout.disabled = !canCheckout;
+        if (mCheckout) mCheckout.disabled = !canCheckout;
+      }
+
+      // ---- CHECK IF READY FOR CHECKOUT ----
+      function isReadyToCheckout() {
+        if (!state.service) return false;
+        if (!state.head && !state.byoHead) return false;
+        if (!state.mesh) return false;
+        if (!state.strings) return false;
+        if (!state.pocket) return false;
+        return true;
+      }
+
+      // ---- SECTION CHECKMARKS ----
+      function updateCheckmarks() {
+        var checks = {
+          service: !!state.service,
+          head: !!state.head || state.byoHead,
+          mesh: !!state.mesh,
+          strings: !!state.strings,
+          pocket: !!state.pocket,
+          upsell: state.upsells.length > 0,
+        };
+
+        Object.keys(checks).forEach(function(key) {
+          var section = document.querySelector('[data-section="' + key + '"]');
+          if (!section) return;
+          var checkIcon = section.querySelector('.section-check');
+          if (checkIcon) {
+            if (checks[key]) {
+              checkIcon.classList.remove('hidden');
+            } else {
+              checkIcon.classList.add('hidden');
+            }
+          }
+        });
+      }
+
+      // ---- CHECKOUT ----
+      function doCheckout() {
+        if (isCheckingOut) return;
+        if (!isReadyToCheckout()) return;
+
+        isCheckingOut = true;
+        if (dCheckout) { dCheckout.disabled = true; dCheckout.textContent = 'Processing...'; }
+        if (mCheckout) { mCheckout.disabled = true; mCheckout.textContent = 'Processing...'; }
+
+        // Build items array (only items with priceId)
+        var items = [];
+        ['service', 'head', 'mesh', 'strings'].forEach(function(key) {
+          if (state[key] && state[key].priceId) {
+            items.push({ priceId: state[key].priceId, quantity: 1 });
+          }
+        });
+        state.upsells.forEach(function(u) {
+          if (u.priceId) {
+            items.push({ priceId: u.priceId, quantity: 1 });
+          }
+        });
+
+        if (items.length === 0) {
+          alert('No items with prices selected.');
+          resetCheckoutButtons();
+          return;
+        }
+
+        fetch('/api/checkout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            items: items,
+            mode: 'payment',
+            pocketPreference: state.pocket,
+          }),
+        })
+        .then(function(res) {
+          if (!res.ok) throw new Error('Checkout failed');
+          return res.json();
+        })
+        .then(function(data) {
+          if (data.url) {
+            window.location.href = data.url;
+          } else {
+            throw new Error('No checkout URL returned');
+          }
+        })
+        .catch(function(err) {
+          console.error('Checkout error:', err);
+          alert('Checkout failed. Please try again.');
+          resetCheckoutButtons();
+        });
+      }
+
+      function resetCheckoutButtons() {
+        isCheckingOut = false;
+        if (dCheckout) { dCheckout.disabled = false; dCheckout.textContent = 'Checkout'; }
+        if (mCheckout) { mCheckout.disabled = false; mCheckout.textContent = 'Checkout'; }
+      }
+
+      // Wire up checkout buttons
+      if (dCheckout) dCheckout.addEventListener('click', doCheckout);
+      if (mCheckout) mCheckout.addEventListener('click', doCheckout);
+
+    })();
+  </script>
+</ShopLayout>
