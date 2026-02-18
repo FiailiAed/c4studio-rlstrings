@@ -1,0 +1,92 @@
+---
+export const prerender = false;
+
+import ShopLayout from '../../layouts/ShopLayout.astro';
+import { ConvexHttpClient } from 'convex/browser';
+import { api } from '../../../convex/_generated/api';
+
+const { id } = Astro.params;
+if (!id) return Astro.redirect('/shop');
+
+const client = new ConvexHttpClient(import.meta.env.PUBLIC_CONVEX_URL);
+const allProducts = await client.query(api.inventory.getBuilderProducts, {});
+const product = allProducts.find((p) => p._id === id);
+
+if (!product) return Astro.redirect('/shop');
+
+function formatPrice(cents: number | null, currency: string = 'usd'): string {
+  if (cents === null) return 'Contact for price';
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: currency.toUpperCase(),
+  }).format(cents / 100);
+}
+
+const image = product.images?.[0] ?? null;
+const price = formatPrice(product.unitAmount ?? null, product.currency ?? 'usd');
+---
+
+<ShopLayout
+  title={`RL Strings | ${product.name}`}
+  description={product.description ?? `${product.name} — available in the RL Strings builder.`}
+>
+  <div class="max-w-4xl mx-auto px-4 py-12">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-10 items-start">
+
+      <!-- Image -->
+      <div class="bg-white border border-gray-200 rounded-xl overflow-hidden">
+        {image ? (
+          <img
+            src={image}
+            alt={product.name}
+            class="w-full aspect-square object-cover"
+            width="600"
+            height="600"
+          />
+        ) : (
+          <div class="w-full aspect-square bg-gray-100 flex items-center justify-center">
+            <svg class="w-16 h-16 text-gray-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+              <circle cx="8.5" cy="8.5" r="1.5" />
+              <polyline points="21 15 16 10 5 21" />
+            </svg>
+          </div>
+        )}
+      </div>
+
+      <!-- Details -->
+      <div class="space-y-5">
+        {product.category && (
+          <span class="inline-block text-xs font-semibold uppercase tracking-wider text-gray-400 bg-gray-100 px-3 py-1 rounded-full">
+            {product.category}
+          </span>
+        )}
+
+        <h1 class="text-3xl font-black text-gray-900">{product.name}</h1>
+
+        <p class="text-2xl font-bold text-gray-900">{price}</p>
+
+        {product.description && (
+          <p class="text-gray-600 leading-relaxed">{product.description}</p>
+        )}
+
+        <div class="pt-2">
+          <a
+            href="/shop"
+            class="inline-flex items-center gap-2 bg-black text-white px-8 py-4 rounded-lg font-bold text-lg hover:bg-gray-800 transition w-full justify-center"
+          >
+            Add to Build
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="5" y1="12" x2="19" y2="12" />
+              <polyline points="12 5 19 12 12 19" />
+            </svg>
+          </a>
+          <p class="text-center text-xs text-gray-400 mt-2">
+            Select this item in the builder to check out
+          </p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</ShopLayout>

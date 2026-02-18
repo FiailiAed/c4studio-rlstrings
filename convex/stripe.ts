@@ -71,7 +71,7 @@ export const createPublicCheckout = action({
       "metadata[pickupCode]": pickupCode,
       ...(args.pocketPreference ? { "metadata[pocketPreference]": args.pocketPreference } : {}),
       success_url: `${origin}/order/${pickupCode}`,
-      cancel_url: `${origin}/shop`,
+      cancel_url: `${origin}/checkout/cancel`,
     });
 
     args.items.forEach((item, i) => {

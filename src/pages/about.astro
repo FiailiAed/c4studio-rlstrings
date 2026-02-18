@@ -1,0 +1,103 @@
+---
+export const prerender = true;
+
+import ShopLayout from '../layouts/ShopLayout.astro';
+---
+
+<ShopLayout
+  title="RL Strings | About"
+  description="RL Strings — professional lacrosse stringing by Todd Ruff, based out of Stellar Athletics in Moorestown, NJ."
+>
+  <!-- ===== HERO ===== -->
+  <section class="max-w-3xl mx-auto px-4 py-16 text-center">
+    <h1 class="text-4xl md:text-5xl font-black tracking-tight text-gray-900 mb-4">
+      About RL Strings
+    </h1>
+    <p class="text-lg text-gray-500 max-w-xl mx-auto">
+      Professional lacrosse stringing, custom built for your style of play.
+    </p>
+  </section>
+
+  <!-- ===== STORY ===== -->
+  <section class="bg-gray-50 py-16 px-4">
+    <div class="max-w-3xl mx-auto space-y-8">
+      <div class="bg-white rounded-xl border border-gray-200 p-8 space-y-4">
+        <h2 class="text-2xl font-black text-gray-900">The Story</h2>
+        <p class="text-gray-600 leading-relaxed">
+          RL Strings was born out of a passion for lacrosse and a commitment to craft. Every pocket we string is treated as if it's going into our own stick — because we know how much it matters on the field.
+        </p>
+        <p class="text-gray-600 leading-relaxed">
+          We work out of <strong class="text-gray-900">Stellar Athletics</strong> in Moorestown, NJ, giving us easy access to players in the South Jersey and Philadelphia area. Whether you're a beginner looking for your first real pocket or a varsity player chasing the perfect feel, we're here to help you dial it in.
+        </p>
+      </div>
+
+      <!-- Guarantee -->
+      <div class="bg-white rounded-xl border border-gray-200 p-8 space-y-4">
+        <h2 class="text-2xl font-black text-gray-900">Our Guarantee</h2>
+        <blockquote class="text-gray-700 text-lg italic border-l-4 border-black pl-5 leading-relaxed">
+          "If your stick isn't performing exactly how you want it, we'll restring it for free. No questions asked."
+        </blockquote>
+        <p class="text-gray-600 text-sm">
+          We stand behind every pocket we string. If you're not happy with the feel, throw, or hold, bring it back. We'll make it right.
+        </p>
+      </div>
+
+      <!-- What We String -->
+      <div class="bg-white rounded-xl border border-gray-200 p-8 space-y-4">
+        <h2 class="text-2xl font-black text-gray-900">What We String</h2>
+        <ul class="space-y-3 text-gray-600">
+          <li class="flex items-start gap-3">
+            <svg class="w-5 h-5 text-black flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+            <span>Full re-string with your choice of mesh, strings, and pocket depth</span>
+          </li>
+          <li class="flex items-start gap-3">
+            <svg class="w-5 h-5 text-black flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+            <span>Bring your own head or purchase one through our builder</span>
+          </li>
+          <li class="flex items-start gap-3">
+            <svg class="w-5 h-5 text-black flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+            <span>High, mid, low pocket depths — or a re-create of your favorite pocket</span>
+          </li>
+          <li class="flex items-start gap-3">
+            <svg class="w-5 h-5 text-black flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+            <span>Turnaround: typically 2-3 business days</span>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== LOCATION ===== -->
+  <section class="max-w-3xl mx-auto px-4 py-16">
+    <div class="bg-white rounded-xl border border-gray-200 p-8 space-y-4">
+      <h2 class="text-2xl font-black text-gray-900">Find Us</h2>
+      <div class="space-y-1 text-gray-600">
+        <p class="font-semibold text-gray-900 text-lg">Stellar Athletics</p>
+        <p>876 North Lenola Road</p>
+        <p>Moorestown, New Jersey 08057</p>
+      </div>
+      <div class="flex flex-col sm:flex-row gap-3 pt-2">
+        <a
+          href="/shop"
+          class="inline-flex items-center justify-center gap-2 bg-black text-white px-6 py-3 rounded-lg font-bold hover:bg-gray-800 transition"
+        >
+          Start Your Build
+        </a>
+        <a
+          href="/contact"
+          class="inline-flex items-center justify-center gap-2 border border-gray-300 text-gray-700 px-6 py-3 rounded-lg font-medium hover:bg-gray-50 transition"
+        >
+          Contact Us
+        </a>
+      </div>
+    </div>
+  </section>
+</ShopLayout>
