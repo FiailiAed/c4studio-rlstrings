@@ -1,0 +1,416 @@
+---
+import AdminLayout from '../../../../layouts/AdminLayout.astro';
+import { ConvexHttpClient } from 'convex/browser';
+import { api } from '../../../../../convex/_generated/api';
+
+const auth = Astro.locals.auth();
+const { userId } = auth;
+if (!userId) return Astro.redirect('/admin/sign-in');
+
+const client = new ConvexHttpClient(import.meta.env.PUBLIC_CONVEX_URL);
+const orders = await client.query(api.orders.listOrders);
+
+// Status display config
+const STATUS_LABELS: Record<string, string> = {
+  paid: 'Paid',
+  dropped_off: 'Dropped Off',
+  picked_up: 'Picked Up',
+  stringing: 'Stringing',
+  strung: 'Strung',
+  ready_for_pickup: 'Ready for Pickup',
+  picked_up_by_customer: 'Picked Up',
+  review: 'Review',
+  completed: 'Completed',
+  in_progress: 'In Progress',
+  on_hold: 'On Hold',
+  customer_review: 'Customer Review',
+};
+
+const STATUS_COLORS: Record<string, string> = {
+  paid: 'bg-blue-500/20 text-blue-300 ring-1 ring-blue-500/30',
+  dropped_off: 'bg-yellow-500/20 text-yellow-300 ring-1 ring-yellow-500/30',
+  picked_up: 'bg-orange-500/20 text-orange-300 ring-1 ring-orange-500/30',
+  stringing: 'bg-purple-500/20 text-purple-300 ring-1 ring-purple-500/30',
+  strung: 'bg-indigo-500/20 text-indigo-300 ring-1 ring-indigo-500/30',
+  ready_for_pickup: 'bg-green-500/20 text-green-300 ring-1 ring-green-500/30',
+  picked_up_by_customer: 'bg-teal-500/20 text-teal-300 ring-1 ring-teal-500/30',
+  review: 'bg-amber-500/20 text-amber-300 ring-1 ring-amber-500/30',
+  completed: 'bg-gray-500/20 text-gray-400 ring-1 ring-gray-500/30',
+};
+
+function statusLabel(s: string) { return STATUS_LABELS[s] ?? s.replace(/_/g, ' '); }
+function statusColor(s: string) { return STATUS_COLORS[s] ?? 'bg-gray-500/20 text-gray-400 ring-1 ring-gray-500/30'; }
+function formatCents(cents: number) { return `$${(cents / 100).toFixed(2)}`; }
+function formatDate(ts?: number | null) {
+  if (!ts) return '—';
+  return new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+const NEXT_STATUS: Record<string, string[]> = {
+  paid: ['dropped_off'],
+  dropped_off: ['stringing'],
+  picked_up: ['stringing'],
+  stringing: ['strung'],
+  strung: ['ready_for_pickup'],
+  ready_for_pickup: ['picked_up_by_customer'],
+  picked_up_by_customer: ['review'],
+  review: ['completed'],
+  completed: [],
+};
+---
+
+<AdminLayout
+  title="Orders | RL Strings Admin"
+  description="Manage all orders."
+  activePage="Orders"
+  pageTitle="Orders"
+>
+  <!-- Toolbar -->
+  <div class="mb-6 flex items-center justify-end">
+    <button
+      onclick="location.reload()"
+      class="inline-flex items-center gap-2 rounded-md bg-white/10 px-3 py-2 text-sm font-medium text-white hover:bg-white/20 transition-colors"
+    >
+      <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
+      Refresh
+    </button>
+  </div>
+
+  {orders.length === 0 ? (
+    <div class="rounded-lg bg-gray-800 p-12 ring-1 ring-white/10 text-center">
+      <p class="text-gray-500 text-sm">No orders yet.</p>
+    </div>
+  ) : (
+    <>
+      <!-- Mobile: Cards (< md) -->
+      <div class="space-y-4 md:hidden">
+        {orders.map((order) => {
+          const total = order.lineItems?.reduce((s, li) => s + li.totalAmount, 0) ?? 0;
+          return (
+            <div
+              data-order-id={order._id}
+              class="rounded-lg bg-gray-800 p-4 ring-1 ring-white/10 cursor-pointer hover:bg-gray-700/80 transition-colors"
+              onclick={`openPanel('${order._id}')`}
+            >
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-sm font-mono font-medium text-white">#{order.pickupCode}</span>
+                <span class={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${statusColor(order.status)}`} data-status-badge>
+                  {statusLabel(order.status)}
+                </span>
+              </div>
+              <p class="text-sm text-gray-300 font-medium">{order.customerName}</p>
+              <p class="text-xs text-gray-500 truncate">{order.email}</p>
+              <p class="text-sm text-gray-400 mt-1 truncate">{order.itemDescription}</p>
+              <div class="flex items-center justify-between mt-3">
+                <span class="text-sm font-medium text-white">{total > 0 ? formatCents(total) : '—'}</span>
+                <button
+                  onclick={`event.stopPropagation(); openPanel('${order._id}')`}
+                  class="text-xs text-gray-400 hover:text-white transition-colors"
+                >
+                  Quick View →
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <!-- Desktop: Table (md+) -->
+      <div class="hidden md:block rounded-lg bg-gray-800 ring-1 ring-white/10 overflow-hidden">
+        <table class="min-w-full divide-y divide-white/10">
+          <thead>
+            <tr>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Order #</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Customer</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Description</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Status</th>
+              <th class="px-4 py-3 text-right text-xs font-medium text-gray-400 uppercase tracking-wider">Total</th>
+              <th class="px-4 py-3 text-right text-xs font-medium text-gray-400 uppercase tracking-wider">Date</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-white/5">
+            {orders.map((order) => {
+              const total = order.lineItems?.reduce((s, li) => s + li.totalAmount, 0) ?? 0;
+              return (
+                <tr
+                  data-order-id={order._id}
+                  class="hover:bg-white/5 cursor-pointer transition-colors"
+                  onclick={`openPanel('${order._id}')`}
+                >
+                  <td class="px-4 py-3 text-sm font-mono font-medium text-white">#{order.pickupCode}</td>
+                  <td class="px-4 py-3">
+                    <p class="text-sm text-white">{order.customerName}</p>
+                    <p class="text-xs text-gray-500">{order.email}</p>
+                  </td>
+                  <td class="px-4 py-3 text-sm text-gray-300 max-w-xs truncate">{order.itemDescription}</td>
+                  <td class="px-4 py-3">
+                    <span class={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${statusColor(order.status)}`} data-status-badge>
+                      {statusLabel(order.status)}
+                    </span>
+                  </td>
+                  <td class="px-4 py-3 text-sm text-white text-right">{total > 0 ? formatCents(total) : '—'}</td>
+                  <td class="px-4 py-3 text-xs text-gray-500 text-right whitespace-nowrap">{formatDate(order._creationTime)}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </>
+  )}
+
+  <!-- Slide-over panels (one per order, pre-rendered) -->
+  {orders.map((order) => {
+    const total = order.lineItems?.reduce((s, li) => s + li.totalAmount, 0) ?? 0;
+    const nextStatuses = NEXT_STATUS[order.status] ?? [];
+    const timestamps: { label: string; ts: number }[] = [
+      { label: 'Dropped Off', ts: order.droppedOffAt! },
+      { label: 'Picked Up', ts: order.pickedUpAt! },
+      { label: 'Stringing Started', ts: order.stringingAt! },
+      { label: 'Stringing Complete', ts: order.strungAt! },
+      { label: 'Ready for Pickup', ts: order.readyForPickupAt! },
+      { label: 'Picked Up by Customer', ts: order.pickedUpByCustomerAt! },
+      { label: 'Review', ts: order.reviewAt! },
+      { label: 'Completed', ts: order.completedAt! },
+    ].filter(t => !!t.ts);
+
+    return (
+      <div
+        id={`panel-${order._id}`}
+        data-panel-id={order._id}
+        class="fixed inset-y-0 right-0 z-50 w-full max-w-md hidden"
+        role="dialog"
+        aria-modal="true"
+      >
+        <!-- Backdrop -->
+        <div class="absolute inset-0 bg-black/50" onclick="closePanel()"></div>
+
+        <!-- Panel content -->
+        <div class="absolute inset-y-0 right-0 w-full max-w-md bg-gray-800 ring-1 ring-white/10 shadow-xl flex flex-col overflow-hidden">
+          <!-- Header -->
+          <div class="flex items-center justify-between px-6 py-4 border-b border-white/10 shrink-0">
+            <div class="flex items-center gap-3">
+              <span class="text-base font-semibold text-white font-mono">#{order.pickupCode}</span>
+              <span class={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${statusColor(order.status)}`} data-status-badge>
+                {statusLabel(order.status)}
+              </span>
+            </div>
+            <button onclick="closePanel()" class="rounded-md p-1.5 text-gray-400 hover:text-white hover:bg-white/10 transition-colors">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M6 18 18 6M6 6l12 12" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </button>
+          </div>
+
+          <!-- Scrollable body -->
+          <div class="flex-1 overflow-y-auto px-6 py-4 space-y-6">
+            <!-- Status Actions -->
+            <div>
+              <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Update Status</p>
+              <div class="flex flex-wrap gap-2" data-status-buttons>
+                {nextStatuses.length > 0 ? nextStatuses.map((ns) => (
+                  <button
+                    onclick={`handleStatusUpdate('${order._id}', '${ns}', '${order._id}', this)`}
+                    class="rounded-md bg-white/10 px-3 py-1.5 text-sm font-medium text-white hover:bg-white/20 transition-colors disabled:opacity-50"
+                  >
+                    → {statusLabel(ns)}
+                  </button>
+                )) : (
+                  <span class="text-sm text-gray-500">No further status updates available</span>
+                )}
+              </div>
+            </div>
+
+            <!-- Customer -->
+            <div>
+              <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Customer</p>
+              <div class="rounded-md bg-gray-900/50 px-4 py-3 space-y-1">
+                <p class="text-sm text-white font-medium">{order.customerName}</p>
+                <p class="text-sm text-gray-400">{order.email}</p>
+                {order.phone && <p class="text-sm text-gray-400">{order.phone}</p>}
+              </div>
+            </div>
+
+            <!-- Line Items -->
+            {order.lineItems && order.lineItems.length > 0 && (
+              <div>
+                <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Line Items</p>
+                <div class="rounded-md bg-gray-900/50 divide-y divide-white/5">
+                  {order.lineItems.map((li) => (
+                    <div class="flex items-center justify-between px-4 py-2.5">
+                      <div>
+                        <p class="text-sm text-white">{li.productName}</p>
+                        <p class="text-xs text-gray-500">Qty {li.quantity} × {formatCents(li.unitAmount)}</p>
+                      </div>
+                      <span class="text-sm text-white font-medium">{formatCents(li.totalAmount)}</span>
+                    </div>
+                  ))}
+                  <div class="flex items-center justify-between px-4 py-2.5">
+                    <span class="text-sm font-semibold text-white">Total</span>
+                    <span class="text-sm font-semibold text-white">{formatCents(total)}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <!-- Timestamps -->
+            {timestamps.length > 0 && (
+              <div>
+                <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Timeline</p>
+                <div class="space-y-1.5">
+                  {timestamps.map((t) => (
+                    <div class="flex items-center justify-between text-sm">
+                      <span class="text-gray-400">{t.label}</span>
+                      <span class="text-gray-300 text-xs">{formatDate(t.ts)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <!-- Footer -->
+          <div class="px-6 py-4 border-t border-white/10 shrink-0">
+            <a
+              href={`/admin/new/orders/${order._id}`}
+              class="block w-full text-center rounded-md bg-white/10 px-4 py-2 text-sm font-medium text-white hover:bg-white/20 transition-colors"
+            >
+              View Full Order →
+            </a>
+          </div>
+        </div>
+      </div>
+    );
+  })}
+</AdminLayout>
+
+<script>
+  const NEXT_STATUS: Record<string, string[]> = {
+    paid: ['dropped_off'],
+    dropped_off: ['stringing'],
+    picked_up: ['stringing'],
+    stringing: ['strung'],
+    strung: ['ready_for_pickup'],
+    ready_for_pickup: ['picked_up_by_customer'],
+    picked_up_by_customer: ['review'],
+    review: ['completed'],
+    completed: [],
+  };
+
+  const STATUS_LABELS: Record<string, string> = {
+    paid: 'Paid',
+    dropped_off: 'Dropped Off',
+    picked_up: 'Picked Up',
+    stringing: 'Stringing',
+    strung: 'Strung',
+    ready_for_pickup: 'Ready for Pickup',
+    picked_up_by_customer: 'Picked Up',
+    review: 'Review',
+    completed: 'Completed',
+  };
+
+  const STATUS_COLORS: Record<string, string> = {
+    paid: 'bg-blue-500/20 text-blue-300 ring-1 ring-blue-500/30',
+    dropped_off: 'bg-yellow-500/20 text-yellow-300 ring-1 ring-yellow-500/30',
+    picked_up: 'bg-orange-500/20 text-orange-300 ring-1 ring-orange-500/30',
+    stringing: 'bg-purple-500/20 text-purple-300 ring-1 ring-purple-500/30',
+    strung: 'bg-indigo-500/20 text-indigo-300 ring-1 ring-indigo-500/30',
+    ready_for_pickup: 'bg-green-500/20 text-green-300 ring-1 ring-green-500/30',
+    picked_up_by_customer: 'bg-teal-500/20 text-teal-300 ring-1 ring-teal-500/30',
+    review: 'bg-amber-500/20 text-amber-300 ring-1 ring-amber-500/30',
+    completed: 'bg-gray-500/20 text-gray-400 ring-1 ring-gray-500/30',
+  };
+
+  let currentPanelId: string | null = null;
+
+  function openPanel(orderId: string) {
+    if (currentPanelId) closePanel();
+    const panel = document.getElementById(`panel-${orderId}`);
+    if (panel) {
+      panel.classList.remove('hidden');
+      document.body.style.overflow = 'hidden';
+      currentPanelId = orderId;
+    }
+  }
+
+  function closePanel() {
+    if (currentPanelId) {
+      const panel = document.getElementById(`panel-${currentPanelId}`);
+      if (panel) panel.classList.add('hidden');
+      document.body.style.overflow = '';
+      currentPanelId = null;
+    }
+  }
+
+  async function handleStatusUpdate(orderId: string, newStatus: string, panelId: string, btn: HTMLButtonElement) {
+    btn.disabled = true;
+    const originalText = btn.textContent ?? '';
+    btn.textContent = 'Updating…';
+
+    try {
+      const res = await fetch('/api/admin/order/status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: orderId, status: newStatus }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({})) as { error?: string };
+        throw new Error(data.error ?? 'Status update failed');
+      }
+
+      // Update all status badges for this order
+      const label = STATUS_LABELS[newStatus] ?? newStatus.replace(/_/g, ' ');
+      const colorClass = STATUS_COLORS[newStatus] ?? 'bg-gray-500/20 text-gray-400 ring-1 ring-gray-500/30';
+
+      // List badges (table row or mobile card)
+      document.querySelectorAll(`[data-order-id="${orderId}"] [data-status-badge]`).forEach((el) => {
+        el.textContent = label;
+        el.className = `inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${colorClass}`;
+      });
+
+      // Panel badge
+      const panelEl = document.querySelector(`[data-panel-id="${panelId}"]`);
+      if (panelEl) {
+        const panelBadge = panelEl.querySelector('[data-status-badge]');
+        if (panelBadge) {
+          panelBadge.textContent = label;
+          panelBadge.className = `inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${colorClass}`;
+        }
+
+        // Re-render status buttons
+        const btnContainer = panelEl.querySelector('[data-status-buttons]');
+        if (btnContainer) {
+          const nextStatuses = NEXT_STATUS[newStatus] ?? [];
+          if (nextStatuses.length > 0) {
+            btnContainer.innerHTML = nextStatuses
+              .map(
+                (s) =>
+                  `<button onclick="handleStatusUpdate('${orderId}', '${s}', '${panelId}', this)" class="rounded-md bg-white/10 px-3 py-1.5 text-sm font-medium text-white hover:bg-white/20 transition-colors disabled:opacity-50">→ ${STATUS_LABELS[s] ?? s}</button>`,
+              )
+              .join('');
+          } else {
+            btnContainer.innerHTML = '<span class="text-sm text-gray-500">No further status updates available</span>';
+          }
+        }
+      }
+    } catch (err) {
+      console.error(err);
+      btn.disabled = false;
+      btn.textContent = originalText;
+      alert(`Failed to update status: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    }
+  }
+
+  // Escape key closes panel
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closePanel();
+  });
+
+  // Expose to inline onclick handlers
+  (window as Window & { openPanel: typeof openPanel; closePanel: typeof closePanel; handleStatusUpdate: typeof handleStatusUpdate }).openPanel = openPanel;
+  (window as Window & { openPanel: typeof openPanel; closePanel: typeof closePanel; handleStatusUpdate: typeof handleStatusUpdate }).closePanel = closePanel;
+  (window as Window & { openPanel: typeof openPanel; closePanel: typeof closePanel; handleStatusUpdate: typeof handleStatusUpdate }).handleStatusUpdate = handleStatusUpdate;
+</script>

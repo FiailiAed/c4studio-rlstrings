@@ -1,0 +1,328 @@
+---
+import AdminLayout from '../../../../layouts/AdminLayout.astro';
+import { ConvexHttpClient } from 'convex/browser';
+import { api } from '../../../../../convex/_generated/api';
+import type { Id } from '../../../../../convex/_generated/dataModel';
+
+const auth = Astro.locals.auth();
+const { userId } = auth;
+if (!userId) return Astro.redirect('/admin/sign-in');
+
+const { id } = Astro.params;
+if (!id) return Astro.redirect('/admin/new/orders');
+
+const client = new ConvexHttpClient(import.meta.env.PUBLIC_CONVEX_URL);
+const order = await client.query(api.orders.getOrderById, { id: id as Id<'orders'> });
+
+if (!order) return Astro.redirect('/admin/new/orders');
+
+const STATUS_LABELS: Record<string, string> = {
+  paid: 'Paid',
+  dropped_off: 'Dropped Off',
+  picked_up: 'Picked Up',
+  stringing: 'Stringing',
+  strung: 'Strung',
+  ready_for_pickup: 'Ready for Pickup',
+  picked_up_by_customer: 'Picked Up',
+  review: 'Review',
+  completed: 'Completed',
+  in_progress: 'In Progress',
+  on_hold: 'On Hold',
+  customer_review: 'Customer Review',
+};
+
+const STATUS_COLORS: Record<string, string> = {
+  paid: 'bg-blue-500/20 text-blue-300 ring-1 ring-blue-500/30',
+  dropped_off: 'bg-yellow-500/20 text-yellow-300 ring-1 ring-yellow-500/30',
+  picked_up: 'bg-orange-500/20 text-orange-300 ring-1 ring-orange-500/30',
+  stringing: 'bg-purple-500/20 text-purple-300 ring-1 ring-purple-500/30',
+  strung: 'bg-indigo-500/20 text-indigo-300 ring-1 ring-indigo-500/30',
+  ready_for_pickup: 'bg-green-500/20 text-green-300 ring-1 ring-green-500/30',
+  picked_up_by_customer: 'bg-teal-500/20 text-teal-300 ring-1 ring-teal-500/30',
+  review: 'bg-amber-500/20 text-amber-300 ring-1 ring-amber-500/30',
+  completed: 'bg-gray-500/20 text-gray-400 ring-1 ring-gray-500/30',
+};
+
+const NEXT_STATUS: Record<string, string[]> = {
+  paid: ['dropped_off'],
+  dropped_off: ['stringing'],
+  picked_up: ['stringing'],
+  stringing: ['strung'],
+  strung: ['ready_for_pickup'],
+  ready_for_pickup: ['picked_up_by_customer'],
+  picked_up_by_customer: ['review'],
+  review: ['completed'],
+  completed: [],
+};
+
+const CATEGORY_COLORS: Record<string, string> = {
+  head: 'bg-blue-500/20 text-blue-300',
+  shaft: 'bg-purple-500/20 text-purple-300',
+  mesh: 'bg-green-500/20 text-green-300',
+  strings: 'bg-amber-500/20 text-amber-300',
+  service: 'bg-indigo-500/20 text-indigo-300',
+  upsell: 'bg-pink-500/20 text-pink-300',
+};
+
+function statusLabel(s: string) { return STATUS_LABELS[s] ?? s.replace(/_/g, ' '); }
+function statusColor(s: string) { return STATUS_COLORS[s] ?? 'bg-gray-500/20 text-gray-400 ring-1 ring-gray-500/30'; }
+function formatCents(cents: number) { return `$${(cents / 100).toFixed(2)}`; }
+function formatDate(ts?: number | null) {
+  if (!ts) return '—';
+  return new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+const nextStatuses = NEXT_STATUS[order.status] ?? [];
+const total = order.lineItems?.reduce((s, li) => s + li.totalAmount, 0) ?? 0;
+
+const timestamps: { label: string; ts: number }[] = [
+  { label: 'Dropped Off', ts: order.droppedOffAt! },
+  { label: 'Picked Up (Stringer)', ts: order.pickedUpAt! },
+  { label: 'Stringing Started', ts: order.stringingAt! },
+  { label: 'Stringing Complete', ts: order.strungAt! },
+  { label: 'Ready for Pickup', ts: order.readyForPickupAt! },
+  { label: 'Picked Up by Customer', ts: order.pickedUpByCustomerAt! },
+  { label: 'Review', ts: order.reviewAt! },
+  { label: 'Completed', ts: order.completedAt! },
+].filter(t => !!t.ts);
+---
+
+<AdminLayout
+  title={`Order #${order.pickupCode} | RL Strings Admin`}
+  description="Order detail view."
+  activePage="Orders"
+  pageTitle={`Order #${order.pickupCode}`}
+>
+  <!-- Back link -->
+  <div class="mb-6">
+    <a href="/admin/new/orders" class="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-white transition-colors">
+      <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
+      All Orders
+    </a>
+  </div>
+
+  <div class="space-y-6">
+    <!-- Order Summary + Status (combined top card) -->
+    <div class="rounded-lg bg-gray-800 p-6 ring-1 ring-white/10">
+      <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+        <div class="space-y-2">
+          <div class="flex items-center gap-3">
+            <h2 class="text-lg font-semibold text-white font-mono">#{order.pickupCode}</h2>
+            <span id="status-badge" class={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${statusColor(order.status)}`}>
+              {statusLabel(order.status)}
+            </span>
+          </div>
+          <div class="grid grid-cols-2 gap-x-8 gap-y-1 text-sm">
+            <span class="text-gray-500">Type</span>
+            <span class="text-gray-300 capitalize">{order.orderType}</span>
+            <span class="text-gray-500">Created</span>
+            <span class="text-gray-300">{formatDate(order._creationTime)}</span>
+            <span class="text-gray-500">Stripe Session</span>
+            <span class="text-gray-400 font-mono text-xs truncate max-w-[200px]" title={order.stripeSessionId}>
+              {order.stripeSessionId.slice(0, 24)}…
+            </span>
+          </div>
+        </div>
+
+        <!-- Status Actions -->
+        <div class="shrink-0">
+          <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Update Status</p>
+          <div id="status-buttons" class="flex flex-wrap gap-2">
+            {nextStatuses.length > 0 ? nextStatuses.map((ns) => (
+              <button
+                onclick={`handleStatusUpdate('${order._id}', '${ns}', this)`}
+                class="rounded-md bg-white/10 px-3 py-1.5 text-sm font-medium text-white hover:bg-white/20 transition-colors disabled:opacity-50"
+              >
+                → {statusLabel(ns)}
+              </button>
+            )) : (
+              <span class="text-sm text-gray-500">Order complete</span>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Customer Information -->
+    <div class="rounded-lg bg-gray-800 p-6 ring-1 ring-white/10">
+      <h3 class="text-sm font-medium text-gray-400 uppercase tracking-wider mb-4">Customer</h3>
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div>
+          <p class="text-xs text-gray-500 mb-1">Name</p>
+          <p class="text-sm text-white font-medium">{order.customerName}</p>
+        </div>
+        <div>
+          <p class="text-xs text-gray-500 mb-1">Email</p>
+          <p class="text-sm text-gray-300">{order.email}</p>
+        </div>
+        <div>
+          <p class="text-xs text-gray-500 mb-1">Phone</p>
+          <p class="text-sm text-gray-300">{order.phone ?? '—'}</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Line Items -->
+    {order.lineItems && order.lineItems.length > 0 && (
+      <div class="rounded-lg bg-gray-800 ring-1 ring-white/10 overflow-hidden">
+        <div class="px-6 py-4 border-b border-white/10">
+          <h3 class="text-sm font-medium text-gray-400 uppercase tracking-wider">Line Items</h3>
+        </div>
+        <table class="min-w-full divide-y divide-white/5">
+          <thead>
+            <tr>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
+              <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Qty</th>
+              <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Unit Price</th>
+              <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-white/5">
+            {order.lineItems.map((li) => (
+              <tr>
+                <td class="px-6 py-3 text-sm text-white">{li.productName}</td>
+                <td class="px-6 py-3">
+                  <span class={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium capitalize ${CATEGORY_COLORS[li.category] ?? 'bg-gray-500/20 text-gray-400'}`}>
+                    {li.category}
+                  </span>
+                </td>
+                <td class="px-6 py-3 text-sm text-gray-300 text-right">{li.quantity}</td>
+                <td class="px-6 py-3 text-sm text-gray-300 text-right">{formatCents(li.unitAmount)}</td>
+                <td class="px-6 py-3 text-sm text-white font-medium text-right">{formatCents(li.totalAmount)}</td>
+              </tr>
+            ))}
+            <tr class="bg-white/5">
+              <td colspan="4" class="px-6 py-3 text-sm font-semibold text-white text-right">Total</td>
+              <td class="px-6 py-3 text-sm font-semibold text-white text-right">{formatCents(total)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    )}
+
+    <!-- Timestamps Timeline -->
+    {timestamps.length > 0 && (
+      <div class="rounded-lg bg-gray-800 p-6 ring-1 ring-white/10">
+        <h3 class="text-sm font-medium text-gray-400 uppercase tracking-wider mb-4">Timeline</h3>
+        <ol class="relative border-l border-white/10 space-y-4 ml-2">
+          {timestamps.map((t) => (
+            <li class="ml-4">
+              <div class="absolute -left-1.5 mt-1 h-3 w-3 rounded-full border border-white/20 bg-gray-700"></div>
+              <div class="flex items-baseline justify-between">
+                <p class="text-sm font-medium text-white">{t.label}</p>
+                <p class="text-xs text-gray-500">{formatDate(t.ts)}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
+      </div>
+    )}
+
+    <!-- Payment -->
+    <div class="rounded-lg bg-gray-800 p-6 ring-1 ring-white/10">
+      <h3 class="text-sm font-medium text-gray-400 uppercase tracking-wider mb-4">Payment</h3>
+      <div class="space-y-2">
+        <div class="flex items-center justify-between text-sm">
+          <span class="text-gray-500">Stripe Session ID</span>
+          <span class="text-gray-300 font-mono text-xs">{order.stripeSessionId}</span>
+        </div>
+        {order.stripeCustomerId && (
+          <div class="flex items-center justify-between text-sm">
+            <span class="text-gray-500">Stripe Customer ID</span>
+            <span class="text-gray-300 font-mono text-xs">{order.stripeCustomerId}</span>
+          </div>
+        )}
+      </div>
+    </div>
+  </div>
+</AdminLayout>
+
+<script define:vars={{ orderId: order._id }}>
+  const NEXT_STATUS = {
+    paid: ['dropped_off'],
+    dropped_off: ['stringing'],
+    picked_up: ['stringing'],
+    stringing: ['strung'],
+    strung: ['ready_for_pickup'],
+    ready_for_pickup: ['picked_up_by_customer'],
+    picked_up_by_customer: ['review'],
+    review: ['completed'],
+    completed: [],
+  };
+
+  const STATUS_LABELS = {
+    paid: 'Paid',
+    dropped_off: 'Dropped Off',
+    picked_up: 'Picked Up',
+    stringing: 'Stringing',
+    strung: 'Strung',
+    ready_for_pickup: 'Ready for Pickup',
+    picked_up_by_customer: 'Picked Up',
+    review: 'Review',
+    completed: 'Completed',
+  };
+
+  const STATUS_COLORS = {
+    paid: 'bg-blue-500/20 text-blue-300 ring-1 ring-blue-500/30',
+    dropped_off: 'bg-yellow-500/20 text-yellow-300 ring-1 ring-yellow-500/30',
+    picked_up: 'bg-orange-500/20 text-orange-300 ring-1 ring-orange-500/30',
+    stringing: 'bg-purple-500/20 text-purple-300 ring-1 ring-purple-500/30',
+    strung: 'bg-indigo-500/20 text-indigo-300 ring-1 ring-indigo-500/30',
+    ready_for_pickup: 'bg-green-500/20 text-green-300 ring-1 ring-green-500/30',
+    picked_up_by_customer: 'bg-teal-500/20 text-teal-300 ring-1 ring-teal-500/30',
+    review: 'bg-amber-500/20 text-amber-300 ring-1 ring-amber-500/30',
+    completed: 'bg-gray-500/20 text-gray-400 ring-1 ring-gray-500/30',
+  };
+
+  async function handleStatusUpdate(id, newStatus, btn) {
+    btn.disabled = true;
+    const originalText = btn.textContent;
+    btn.textContent = 'Updating…';
+
+    try {
+      const res = await fetch('/api/admin/order/status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, status: newStatus }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Status update failed');
+      }
+
+      // Update badge
+      const badge = document.getElementById('status-badge');
+      if (badge) {
+        badge.textContent = STATUS_LABELS[newStatus] || newStatus.replace(/_/g, ' ');
+        badge.className = `inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_COLORS[newStatus] || 'bg-gray-500/20 text-gray-400 ring-1 ring-gray-500/30'}`;
+      }
+
+      // Re-render buttons
+      const btnContainer = document.getElementById('status-buttons');
+      if (btnContainer) {
+        const nextStatuses = NEXT_STATUS[newStatus] || [];
+        if (nextStatuses.length > 0) {
+          btnContainer.innerHTML = nextStatuses
+            .map(
+              (s) =>
+                `<button onclick="handleStatusUpdate('${id}', '${s}', this)" class="rounded-md bg-white/10 px-3 py-1.5 text-sm font-medium text-white hover:bg-white/20 transition-colors disabled:opacity-50">→ ${STATUS_LABELS[s] || s}</button>`,
+            )
+            .join('');
+        } else {
+          btnContainer.innerHTML = '<span class="text-sm text-gray-500">Order complete</span>';
+        }
+      }
+    } catch (err) {
+      console.error(err);
+      btn.disabled = false;
+      btn.textContent = originalText;
+      alert('Failed to update status: ' + (err.message || 'Unknown error'));
+    }
+  }
+
+  window.handleStatusUpdate = handleStatusUpdate;
+</script>

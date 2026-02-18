@@ -1,6 +1,12 @@
 import { query, mutation, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 
+// Get a single order by ID (admin)
+export const getOrderById = query({
+  args: { id: v.id("orders") },
+  handler: async (ctx, { id }) => ctx.db.get(id),
+});
+
 // Get all orders
 export const listOrders = query({
   args: {},

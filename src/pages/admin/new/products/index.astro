@@ -1,0 +1,720 @@
+---
+import AdminLayout from '../../../../layouts/AdminLayout.astro';
+import { ConvexHttpClient } from 'convex/browser';
+import { api } from '../../../../../convex/_generated/api';
+
+const auth = Astro.locals.auth();
+const { userId } = auth;
+if (!userId) return Astro.redirect('/admin/sign-in');
+
+const client = new ConvexHttpClient(import.meta.env.PUBLIC_CONVEX_URL);
+const items = await client.query(api.inventory.listInventory);
+
+const CATEGORIES = ['head', 'shaft', 'mesh', 'strings', 'service', 'upsell'] as const;
+const CATEGORY_LABELS: Record<string, string> = {
+  head: 'Heads',
+  shaft: 'Shafts',
+  mesh: 'Mesh',
+  strings: 'Strings',
+  service: 'Services',
+  upsell: 'Upsells',
+};
+const CATEGORY_COLORS: Record<string, string> = {
+  head: 'bg-blue-500/20 text-blue-300',
+  shaft: 'bg-purple-500/20 text-purple-300',
+  mesh: 'bg-green-500/20 text-green-300',
+  strings: 'bg-amber-500/20 text-amber-300',
+  service: 'bg-indigo-500/20 text-indigo-300',
+  upsell: 'bg-pink-500/20 text-pink-300',
+};
+
+function formatCents(cents?: number | null) {
+  if (cents == null) return '—';
+  return `$${(cents / 100).toFixed(2)}`;
+}
+
+const activeCat = Astro.url.searchParams.get('cat') ?? 'all';
+
+// Group items by category
+const grouped = Object.fromEntries(
+  CATEGORIES.map((cat) => [cat, items.filter((i) => i.category === cat)]),
+);
+---
+
+<AdminLayout
+  title="Inventory | RL Strings Admin"
+  description="Manage product inventory."
+  activePage="Inventory"
+  pageTitle="Inventory"
+>
+  <!-- Toolbar -->
+  <div class="mb-6 flex flex-wrap items-center gap-3">
+    <button
+      id="sync-btn"
+      onclick="syncFromStripe(this)"
+      class="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-500 transition-colors disabled:opacity-50"
+    >
+      <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
+      Sync from Stripe
+    </button>
+
+    <button
+      onclick="document.getElementById('dialog-new').showModal()"
+      class="inline-flex items-center gap-2 rounded-md bg-white/10 px-3 py-2 text-sm font-medium text-white hover:bg-white/20 transition-colors"
+    >
+      <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M12 4.5v15m7.5-7.5h-15" stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
+      New Product
+    </button>
+
+    <button
+      onclick="location.reload()"
+      class="ml-auto inline-flex items-center gap-2 rounded-md bg-white/10 px-3 py-2 text-sm font-medium text-white hover:bg-white/20 transition-colors"
+    >
+      <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
+      Refresh
+    </button>
+  </div>
+
+  <!-- Category Tabs -->
+  <div class="mb-6 flex flex-wrap gap-1 border-b border-white/10 pb-0">
+    {(['all', ...CATEGORIES] as const).map((cat) => (
+      <button
+        data-tab={cat}
+        onclick={`switchTab('${cat}')`}
+        class={`px-4 py-2 text-sm font-medium rounded-t-md transition-colors ${
+          activeCat === cat
+            ? 'bg-gray-800 text-white border-b-2 border-white/50'
+            : 'text-gray-400 hover:text-white hover:bg-white/5'
+        }`}
+      >
+        {cat === 'all' ? 'All' : CATEGORY_LABELS[cat]}
+        <span class="ml-1.5 text-xs text-gray-500">
+          {cat === 'all' ? items.length : (grouped[cat]?.length ?? 0)}
+        </span>
+      </button>
+    ))}
+  </div>
+
+  <!-- All items section (shown when tab = all) -->
+  <div data-cat-section="all" class={activeCat !== 'all' ? 'hidden' : ''}>
+    {items.length === 0 ? (
+      <div class="rounded-lg bg-gray-800 p-12 ring-1 ring-white/10 text-center">
+        <p class="text-gray-500 text-sm">No inventory items. Sync from Stripe or add a product.</p>
+      </div>
+    ) : (
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {items.map((item) => (
+          <div
+            class="rounded-lg bg-gray-800 p-4 ring-1 ring-white/10 hover:bg-gray-700/80 cursor-pointer transition-colors"
+            onclick={`openProductPanel('${item._id}')`}
+          >
+            <div class="flex items-start justify-between mb-2">
+              <p class="text-sm font-medium text-white leading-tight">{item.name}</p>
+              <span class={`ml-2 shrink-0 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium capitalize ${CATEGORY_COLORS[item.category] ?? 'bg-gray-500/20 text-gray-400'}`}>
+                {item.category}
+              </span>
+            </div>
+            <div class="flex items-center gap-2 text-sm text-gray-400 mb-2">
+              <span>{formatCents(item.unitAmount)}</span>
+              <span class="text-gray-600">·</span>
+              <span class={item.stock <= 0 ? 'text-red-400' : 'text-gray-400'}>{item.stock} in stock</span>
+            </div>
+            <div class="flex flex-wrap gap-1.5">
+              {item.showInShop && (
+                <span class="inline-flex items-center rounded-full bg-green-500/15 px-2 py-0.5 text-xs text-green-400">Shop</span>
+              )}
+              {item.showInBuilder && (
+                <span class="inline-flex items-center rounded-full bg-blue-500/15 px-2 py-0.5 text-xs text-blue-400">Builder</span>
+              )}
+              {item.playerType && (
+                <span class="inline-flex items-center rounded-full bg-white/10 px-2 py-0.5 text-xs text-gray-400 capitalize">{item.playerType}</span>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+
+  <!-- Per-category sections -->
+  {CATEGORIES.map((cat) => (
+    <div data-cat-section={cat} class={activeCat !== cat ? 'hidden' : ''}>
+      {(grouped[cat]?.length ?? 0) === 0 ? (
+        <div class="rounded-lg bg-gray-800 p-12 ring-1 ring-white/10 text-center">
+          <p class="text-gray-500 text-sm">No {CATEGORY_LABELS[cat]} items.</p>
+        </div>
+      ) : (
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {grouped[cat].map((item) => (
+            <div
+              class="rounded-lg bg-gray-800 p-4 ring-1 ring-white/10 hover:bg-gray-700/80 cursor-pointer transition-colors"
+              onclick={`openProductPanel('${item._id}')`}
+            >
+              <div class="flex items-start justify-between mb-2">
+                <p class="text-sm font-medium text-white leading-tight">{item.name}</p>
+                <span class={`ml-2 shrink-0 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium capitalize ${CATEGORY_COLORS[item.category] ?? 'bg-gray-500/20 text-gray-400'}`}>
+                  {item.category}
+                </span>
+              </div>
+              <div class="flex items-center gap-2 text-sm text-gray-400 mb-2">
+                <span>{formatCents(item.unitAmount)}</span>
+                <span class="text-gray-600">·</span>
+                <span class={item.stock <= 0 ? 'text-red-400' : 'text-gray-400'}>{item.stock} in stock</span>
+              </div>
+              <div class="flex flex-wrap gap-1.5">
+                {item.showInShop && (
+                  <span class="inline-flex items-center rounded-full bg-green-500/15 px-2 py-0.5 text-xs text-green-400">Shop</span>
+                )}
+                {item.showInBuilder && (
+                  <span class="inline-flex items-center rounded-full bg-blue-500/15 px-2 py-0.5 text-xs text-blue-400">Builder</span>
+                )}
+                {item.playerType && (
+                  <span class="inline-flex items-center rounded-full bg-white/10 px-2 py-0.5 text-xs text-gray-400 capitalize">{item.playerType}</span>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  ))}
+
+  <!-- Slide-over panels (one per item, pre-rendered) -->
+  {items.map((item) => (
+    <div
+      id={`product-panel-${item._id}`}
+      data-product-panel-id={item._id}
+      class="fixed inset-y-0 right-0 z-50 w-full max-w-md hidden"
+      role="dialog"
+      aria-modal="true"
+    >
+      <div class="absolute inset-0 bg-black/50" onclick="closeProductPanel()"></div>
+      <div class="absolute inset-y-0 right-0 w-full max-w-md bg-gray-800 ring-1 ring-white/10 shadow-xl flex flex-col overflow-hidden">
+        <!-- Header -->
+        <div class="flex items-center justify-between px-6 py-4 border-b border-white/10 shrink-0">
+          <div class="flex items-center gap-3 min-w-0">
+            <p class="text-base font-semibold text-white truncate">{item.name}</p>
+            <span class={`shrink-0 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium capitalize ${CATEGORY_COLORS[item.category] ?? 'bg-gray-500/20 text-gray-400'}`}>
+              {item.category}
+            </span>
+          </div>
+          <button onclick="closeProductPanel()" class="ml-3 shrink-0 rounded-md p-1.5 text-gray-400 hover:text-white hover:bg-white/10 transition-colors">
+            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M6 18 18 6M6 6l12 12" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </button>
+        </div>
+
+        <!-- Scrollable body -->
+        <div class="flex-1 overflow-y-auto px-6 py-4 space-y-5">
+          <!-- Price + Stock -->
+          <div class="grid grid-cols-2 gap-4">
+            <div class="rounded-md bg-gray-900/50 px-4 py-3">
+              <p class="text-xs text-gray-500 mb-1">Price</p>
+              <p class="text-lg font-semibold text-white">{formatCents(item.unitAmount)}</p>
+            </div>
+            <div class="rounded-md bg-gray-900/50 px-4 py-3">
+              <p class="text-xs text-gray-500 mb-1">Stock</p>
+              <p class={`text-lg font-semibold ${item.stock <= 0 ? 'text-red-400' : 'text-white'}`}>{item.stock}</p>
+            </div>
+          </div>
+
+          <!-- Visibility -->
+          <div>
+            <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Visibility</p>
+            <div class="flex flex-wrap gap-2">
+              {item.showInShop
+                ? <span class="inline-flex items-center rounded-full bg-green-500/15 px-2.5 py-1 text-xs font-medium text-green-400">In Shop</span>
+                : <span class="inline-flex items-center rounded-full bg-gray-500/15 px-2.5 py-1 text-xs font-medium text-gray-500">Hidden from Shop</span>
+              }
+              {item.showInBuilder
+                ? <span class="inline-flex items-center rounded-full bg-blue-500/15 px-2.5 py-1 text-xs font-medium text-blue-400">In Builder</span>
+                : <span class="inline-flex items-center rounded-full bg-gray-500/15 px-2.5 py-1 text-xs font-medium text-gray-500">Hidden from Builder</span>
+              }
+              {item.playerType && (
+                <span class="inline-flex items-center rounded-full bg-white/10 px-2.5 py-1 text-xs font-medium text-gray-300 capitalize">{item.playerType}</span>
+              )}
+            </div>
+          </div>
+
+          <!-- Description -->
+          {item.description && (
+            <div>
+              <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Description</p>
+              <p class="text-sm text-gray-300 leading-relaxed">{item.description}</p>
+            </div>
+          )}
+
+          <!-- Stripe IDs -->
+          <div>
+            <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Stripe IDs</p>
+            <div class="rounded-md bg-gray-900/50 px-4 py-3 space-y-1.5">
+              <div class="flex items-center justify-between gap-2">
+                <span class="text-xs text-gray-500 shrink-0">Product</span>
+                <span class="text-xs text-gray-400 font-mono truncate">{item.stripeProductId ?? '—'}</span>
+              </div>
+              <div class="flex items-center justify-between gap-2">
+                <span class="text-xs text-gray-500 shrink-0">Price</span>
+                <span class="text-xs text-gray-400 font-mono truncate">{item.priceId}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Footer actions -->
+        <div class="px-6 py-4 border-t border-white/10 shrink-0 space-y-2">
+          <div class="flex gap-2">
+            <button
+              onclick={`document.getElementById('dialog-edit-${item._id}').showModal()`}
+              class="flex-1 rounded-md bg-white/10 px-4 py-2 text-sm font-medium text-white hover:bg-white/20 transition-colors"
+            >
+              Edit
+            </button>
+            <button
+              onclick={`confirmArchive('${item._id}', '${item.stripeProductId ?? ''}', ${JSON.stringify(item.name)})`}
+              class="flex-1 rounded-md bg-red-500/20 px-4 py-2 text-sm font-medium text-red-400 hover:bg-red-500/30 transition-colors"
+            >
+              Archive
+            </button>
+          </div>
+          <a
+            href={`/admin/new/products/${item._id}`}
+            class="block w-full text-center rounded-md bg-white/5 px-4 py-2 text-sm font-medium text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+          >
+            View Full Details →
+          </a>
+        </div>
+      </div>
+    </div>
+  ))}
+
+  <!-- Edit dialogs (one per item) -->
+  {items.map((item) => (
+    <dialog
+      id={`dialog-edit-${item._id}`}
+      class="rounded-xl bg-gray-800 ring-1 ring-white/10 shadow-2xl p-0 w-full max-w-lg backdrop:bg-black/60"
+    >
+      <form method="dialog" class="sr-only"><button>close</button></form>
+      <div class="px-6 py-4 border-b border-white/10 flex items-center justify-between">
+        <h3 class="text-base font-semibold text-white">Edit Product</h3>
+        <button
+          type="button"
+          onclick={`document.getElementById('dialog-edit-${item._id}').close()`}
+          class="rounded-md p-1.5 text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+        >
+          <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M6 18 18 6M6 6l12 12" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+        </button>
+      </div>
+      <div class="px-6 py-4 space-y-4 overflow-y-auto max-h-[70vh]">
+        <div>
+          <label class="block text-xs font-medium text-gray-400 mb-1">Name</label>
+          <input
+            type="text"
+            name="name"
+            value={item.name}
+            class="w-full rounded-md bg-gray-900 border border-white/10 px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-white/20"
+          />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-400 mb-1">Description</label>
+          <textarea
+            name="description"
+            rows={3}
+            class="w-full rounded-md bg-gray-900 border border-white/10 px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-white/20 resize-none"
+          >{item.description ?? ''}</textarea>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-400 mb-1">Category</label>
+          <select
+            name="category"
+            class="w-full rounded-md bg-gray-900 border border-white/10 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-white/20"
+          >
+            {(['head', 'shaft', 'mesh', 'strings', 'service', 'upsell'] as const).map((cat) => (
+              <option value={cat} selected={item.category === cat}>{CATEGORY_LABELS[cat]}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-400 mb-1">Player Type</label>
+          <select
+            name="playerType"
+            class="w-full rounded-md bg-gray-900 border border-white/10 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-white/20"
+          >
+            <option value="" selected={!item.playerType}>— None —</option>
+            <option value="boys" selected={item.playerType === 'boys'}>Boys</option>
+            <option value="girls" selected={item.playerType === 'girls'}>Girls</option>
+            <option value="goalies" selected={item.playerType === 'goalies'}>Goalies</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-400 mb-1">Stock</label>
+          <input
+            type="number"
+            name="stock"
+            value={item.stock}
+            min={0}
+            class="w-full rounded-md bg-gray-900 border border-white/10 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-white/20"
+          />
+        </div>
+        <div class="flex gap-6">
+          <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+            <input type="checkbox" name="showInShop" checked={item.showInShop === true} class="rounded border-white/20 bg-gray-900 text-indigo-600" />
+            Show in Shop
+          </label>
+          <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+            <input type="checkbox" name="showInBuilder" checked={item.showInBuilder === true} class="rounded border-white/20 bg-gray-900 text-indigo-600" />
+            Show in Builder
+          </label>
+        </div>
+      </div>
+      <div class="px-6 py-4 border-t border-white/10 flex justify-end gap-3">
+        <button
+          type="button"
+          onclick={`document.getElementById('dialog-edit-${item._id}').close()`}
+          class="rounded-md bg-white/5 px-4 py-2 text-sm font-medium text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          onclick={`submitEdit('${item._id}', '${item.stripeProductId ?? ''}', this)`}
+          class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 transition-colors disabled:opacity-50"
+        >
+          Save Changes
+        </button>
+      </div>
+    </dialog>
+  ))}
+
+  <!-- New Product Dialog -->
+  <dialog
+    id="dialog-new"
+    class="rounded-xl bg-gray-800 ring-1 ring-white/10 shadow-2xl p-0 w-full max-w-lg backdrop:bg-black/60"
+  >
+    <form method="dialog" class="sr-only"><button>close</button></form>
+    <div class="px-6 py-4 border-b border-white/10 flex items-center justify-between">
+      <h3 class="text-base font-semibold text-white">New Product</h3>
+      <button
+        type="button"
+        onclick="document.getElementById('dialog-new').close()"
+        class="rounded-md p-1.5 text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+      >
+        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M6 18 18 6M6 6l12 12" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+      </button>
+    </div>
+    <div class="px-6 py-4 space-y-4 overflow-y-auto max-h-[70vh]">
+      <div>
+        <label class="block text-xs font-medium text-gray-400 mb-1">Name <span class="text-red-400">*</span></label>
+        <input
+          id="new-name"
+          type="text"
+          placeholder="e.g. Signature Mesh"
+          class="w-full rounded-md bg-gray-900 border border-white/10 px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-white/20"
+        />
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-400 mb-1">Description</label>
+        <textarea
+          id="new-description"
+          rows={3}
+          placeholder="Optional product description"
+          class="w-full rounded-md bg-gray-900 border border-white/10 px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-white/20 resize-none"
+        ></textarea>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-400 mb-1">Price (USD) <span class="text-red-400">*</span></label>
+        <div class="relative">
+          <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">$</span>
+          <input
+            id="new-price"
+            type="number"
+            min="0"
+            step="0.01"
+            placeholder="0.00"
+            class="w-full rounded-md bg-gray-900 border border-white/10 pl-7 pr-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-white/20"
+          />
+        </div>
+        <p class="text-xs text-gray-600 mt-1">Enter price in dollars. Will be converted to cents.</p>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-400 mb-1">Category <span class="text-red-400">*</span></label>
+        <select
+          id="new-category"
+          class="w-full rounded-md bg-gray-900 border border-white/10 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-white/20"
+        >
+          {(['head', 'shaft', 'mesh', 'strings', 'service', 'upsell'] as const).map((cat) => (
+            <option value={cat}>{CATEGORY_LABELS[cat]}</option>
+          ))}
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-400 mb-1">Player Type</label>
+        <select
+          id="new-playerType"
+          class="w-full rounded-md bg-gray-900 border border-white/10 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-white/20"
+        >
+          <option value="">— None —</option>
+          <option value="boys">Boys</option>
+          <option value="girls">Girls</option>
+          <option value="goalies">Goalies</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-400 mb-1">Initial Stock <span class="text-red-400">*</span></label>
+        <input
+          id="new-stock"
+          type="number"
+          min="0"
+          value="0"
+          class="w-full rounded-md bg-gray-900 border border-white/10 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-white/20"
+        />
+      </div>
+      <div class="flex gap-6">
+        <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+          <input id="new-showInShop" type="checkbox" class="rounded border-white/20 bg-gray-900 text-indigo-600" />
+          Show in Shop
+        </label>
+        <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+          <input id="new-showInBuilder" type="checkbox" class="rounded border-white/20 bg-gray-900 text-indigo-600" />
+          Show in Builder
+        </label>
+      </div>
+    </div>
+    <div class="px-6 py-4 border-t border-white/10 flex justify-end gap-3">
+      <button
+        type="button"
+        onclick="document.getElementById('dialog-new').close()"
+        class="rounded-md bg-white/5 px-4 py-2 text-sm font-medium text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+      >
+        Cancel
+      </button>
+      <button
+        type="button"
+        id="new-submit-btn"
+        onclick="submitNewProduct(this)"
+        class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 transition-colors disabled:opacity-50"
+      >
+        Create Product
+      </button>
+    </div>
+  </dialog>
+</AdminLayout>
+
+<script>
+  // --- Tab switching ---
+  function switchTab(cat: string) {
+    document.querySelectorAll('[data-cat-section]').forEach((el) => el.classList.add('hidden'));
+    const section = document.querySelector(`[data-cat-section="${cat}"]`);
+    if (section) section.classList.remove('hidden');
+
+    document.querySelectorAll('[data-tab]').forEach((el) => {
+      const isActive = el.getAttribute('data-tab') === cat;
+      el.className = isActive
+        ? 'px-4 py-2 text-sm font-medium rounded-t-md transition-colors bg-gray-800 text-white border-b-2 border-white/50'
+        : 'px-4 py-2 text-sm font-medium rounded-t-md transition-colors text-gray-400 hover:text-white hover:bg-white/5';
+    });
+
+    const url = new URL(window.location.href);
+    if (cat === 'all') {
+      url.searchParams.delete('cat');
+    } else {
+      url.searchParams.set('cat', cat);
+    }
+    history.replaceState(null, '', url.toString());
+  }
+
+  // --- Slide-over ---
+  let currentProductPanelId: string | null = null;
+
+  function openProductPanel(id: string) {
+    if (currentProductPanelId) closeProductPanel();
+    const panel = document.getElementById(`product-panel-${id}`);
+    if (panel) {
+      panel.classList.remove('hidden');
+      document.body.style.overflow = 'hidden';
+      currentProductPanelId = id;
+    }
+  }
+
+  function closeProductPanel() {
+    if (currentProductPanelId) {
+      const panel = document.getElementById(`product-panel-${currentProductPanelId}`);
+      if (panel) panel.classList.add('hidden');
+      document.body.style.overflow = '';
+      currentProductPanelId = null;
+    }
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeProductPanel();
+  });
+
+  // --- Sync from Stripe ---
+  async function syncFromStripe(btn: HTMLButtonElement) {
+    btn.disabled = true;
+    const original = btn.innerHTML;
+    btn.innerHTML = '<svg class="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" stroke-linecap="round" stroke-linejoin="round" /></svg> Syncing…';
+
+    try {
+      const res = await fetch('/api/admin/inventory/sync', { method: 'POST' });
+      const data = await res.json() as { success?: boolean; created?: number; updated?: number; error?: string };
+      if (!res.ok) throw new Error(data.error ?? 'Sync failed');
+      location.reload();
+    } catch (err) {
+      console.error(err);
+      btn.disabled = false;
+      btn.innerHTML = original;
+      alert('Sync failed: ' + (err instanceof Error ? err.message : 'Unknown error'));
+    }
+  }
+
+  // --- Edit product ---
+  async function submitEdit(inventoryId: string, stripeProductId: string, btn: HTMLButtonElement) {
+    const dialog = document.getElementById(`dialog-edit-${inventoryId}`) as HTMLDialogElement | null;
+    if (!dialog) return;
+
+    const nameEl = dialog.querySelector<HTMLInputElement>('[name="name"]');
+    const descEl = dialog.querySelector<HTMLTextAreaElement>('[name="description"]');
+    const catEl = dialog.querySelector<HTMLSelectElement>('[name="category"]');
+    const playerTypeEl = dialog.querySelector<HTMLSelectElement>('[name="playerType"]');
+    const stockEl = dialog.querySelector<HTMLInputElement>('[name="stock"]');
+    const shopEl = dialog.querySelector<HTMLInputElement>('[name="showInShop"]');
+    const builderEl = dialog.querySelector<HTMLInputElement>('[name="showInBuilder"]');
+
+    btn.disabled = true;
+    const original = btn.textContent ?? '';
+    btn.textContent = 'Saving…';
+
+    try {
+      const res = await fetch('/api/admin/inventory/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          inventoryId,
+          stripeProductId,
+          name: nameEl?.value || undefined,
+          description: descEl?.value || undefined,
+          category: catEl?.value || undefined,
+          playerType: playerTypeEl?.value || undefined,
+          stock: stockEl ? Number(stockEl.value) : undefined,
+          showInShop: shopEl?.checked ?? false,
+          showInBuilder: builderEl?.checked ?? false,
+        }),
+      });
+
+      const data = await res.json() as { success?: boolean; error?: string };
+      if (!res.ok) throw new Error(data.error ?? 'Update failed');
+
+      dialog.close();
+      location.reload();
+    } catch (err) {
+      console.error(err);
+      btn.disabled = false;
+      btn.textContent = original;
+      alert('Update failed: ' + (err instanceof Error ? err.message : 'Unknown error'));
+    }
+  }
+
+  // --- Archive product ---
+  async function confirmArchive(inventoryId: string, stripeProductId: string, productName: string) {
+    if (!confirm(`Archive "${productName}"? This will deactivate it in Stripe and remove it from Convex. This cannot be undone.`)) return;
+
+    try {
+      const res = await fetch('/api/admin/inventory/archive', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ inventoryId, stripeProductId }),
+      });
+
+      const data = await res.json() as { success?: boolean; error?: string };
+      if (!res.ok) throw new Error(data.error ?? 'Archive failed');
+
+      location.reload();
+    } catch (err) {
+      console.error(err);
+      alert('Archive failed: ' + (err instanceof Error ? err.message : 'Unknown error'));
+    }
+  }
+
+  // --- New product ---
+  async function submitNewProduct(btn: HTMLButtonElement) {
+    const nameEl = document.getElementById('new-name') as HTMLInputElement | null;
+    const descEl = document.getElementById('new-description') as HTMLTextAreaElement | null;
+    const priceEl = document.getElementById('new-price') as HTMLInputElement | null;
+    const catEl = document.getElementById('new-category') as HTMLSelectElement | null;
+    const playerTypeEl = document.getElementById('new-playerType') as HTMLSelectElement | null;
+    const stockEl = document.getElementById('new-stock') as HTMLInputElement | null;
+    const shopEl = document.getElementById('new-showInShop') as HTMLInputElement | null;
+    const builderEl = document.getElementById('new-showInBuilder') as HTMLInputElement | null;
+
+    const name = nameEl?.value.trim() ?? '';
+    const price = parseFloat(priceEl?.value ?? '0');
+    const category = catEl?.value ?? 'service';
+    const stock = parseInt(stockEl?.value ?? '0', 10);
+
+    if (!name) { alert('Name is required.'); nameEl?.focus(); return; }
+    if (isNaN(price) || price <= 0) { alert('Please enter a valid price.'); priceEl?.focus(); return; }
+
+    btn.disabled = true;
+    const original = btn.textContent ?? '';
+    btn.textContent = 'Creating…';
+
+    try {
+      const res = await fetch('/api/admin/inventory/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name,
+          description: descEl?.value.trim() || undefined,
+          unitAmount: Math.round(price * 100),
+          category,
+          playerType: playerTypeEl?.value || undefined,
+          stock,
+          showInShop: shopEl?.checked ?? false,
+          showInBuilder: builderEl?.checked ?? false,
+        }),
+      });
+
+      const data = await res.json() as { success?: boolean; error?: string };
+      if (!res.ok) throw new Error(data.error ?? 'Create failed');
+
+      const dialog = document.getElementById('dialog-new') as HTMLDialogElement | null;
+      dialog?.close();
+      location.reload();
+    } catch (err) {
+      console.error(err);
+      btn.disabled = false;
+      btn.textContent = original;
+      alert('Create failed: ' + (err instanceof Error ? err.message : 'Unknown error'));
+    }
+  }
+
+  // Expose to inline handlers
+  type Globals = {
+    openProductPanel: typeof openProductPanel;
+    closeProductPanel: typeof closeProductPanel;
+    syncFromStripe: typeof syncFromStripe;
+    submitEdit: typeof submitEdit;
+    confirmArchive: typeof confirmArchive;
+    submitNewProduct: typeof submitNewProduct;
+    switchTab: typeof switchTab;
+  };
+  const w = window as Window & Globals;
+  w.openProductPanel = openProductPanel;
+  w.closeProductPanel = closeProductPanel;
+  w.syncFromStripe = syncFromStripe;
+  w.submitEdit = submitEdit;
+  w.confirmArchive = confirmArchive;
+  w.submitNewProduct = submitNewProduct;
+  w.switchTab = switchTab;
+</script>
