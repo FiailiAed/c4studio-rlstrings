@@ -1,0 +1,957 @@
+---
+import AdminLayout from '../../../../layouts/AdminLayout.astro';
+import { ConvexHttpClient } from 'convex/browser';
+import { api } from '../../../../../convex/_generated/api';
+
+const auth = Astro.locals.auth();
+const { userId } = auth;
+if (!userId) return Astro.redirect('/admin/sign-in');
+
+const client = new ConvexHttpClient(import.meta.env.PUBLIC_CONVEX_URL);
+const orders = await client.query(api.orders.listOrders);
+
+// ── Status display helpers ──────────────────────────────────────────────
+const STATUS_LABELS: Record<string, string> = {
+  paid: 'Paid',
+  dropped_off: 'Dropped Off',
+  picked_up: 'Picked Up',
+  stringing: 'Stringing',
+  strung: 'Strung',
+  ready_for_pickup: 'Ready for Pickup',
+  picked_up_by_customer: 'Picked Up',
+  review: 'Review',
+  completed: 'Completed',
+  in_progress: 'In Progress',
+  on_hold: 'On Hold',
+  customer_review: 'Customer Review',
+};
+
+const STATUS_COLORS: Record<string, string> = {
+  paid: 'bg-blue-500/20 text-blue-300 ring-1 ring-blue-500/30',
+  dropped_off: 'bg-yellow-500/20 text-yellow-300 ring-1 ring-yellow-500/30',
+  picked_up: 'bg-orange-500/20 text-orange-300 ring-1 ring-orange-500/30',
+  stringing: 'bg-purple-500/20 text-purple-300 ring-1 ring-purple-500/30',
+  strung: 'bg-indigo-500/20 text-indigo-300 ring-1 ring-indigo-500/30',
+  ready_for_pickup: 'bg-green-500/20 text-green-300 ring-1 ring-green-500/30',
+  picked_up_by_customer: 'bg-teal-500/20 text-teal-300 ring-1 ring-teal-500/30',
+  review: 'bg-amber-500/20 text-amber-300 ring-1 ring-amber-500/30',
+  completed: 'bg-gray-500/20 text-gray-400 ring-1 ring-gray-500/30',
+};
+
+function statusLabel(s: string) { return STATUS_LABELS[s] ?? s.replace(/_/g, ' '); }
+function statusColor(s: string) { return STATUS_COLORS[s] ?? 'bg-gray-500/20 text-gray-400 ring-1 ring-gray-500/30'; }
+function formatCents(cents: number) { return `$${(cents / 100).toFixed(2)}`; }
+function formatDate(ts?: number | null) {
+  if (!ts) return '—';
+  return new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+// ── Column definitions ──────────────────────────────────────────────────
+interface Column {
+  key: string;
+  label: string;
+  statuses: string[];
+  headerColor: string;
+  dotColor: string;
+}
+
+const COLUMNS: Column[] = [
+  { key: 'paid', label: 'Paid', statuses: ['paid'], headerColor: 'bg-blue-500/20 text-blue-300 ring-1 ring-blue-500/30', dotColor: 'bg-blue-400' },
+  { key: 'dropped_off', label: 'Dropped Off', statuses: ['dropped_off'], headerColor: 'bg-yellow-500/20 text-yellow-300 ring-1 ring-yellow-500/30', dotColor: 'bg-yellow-400' },
+  { key: 'picked_up', label: 'Picked Up', statuses: ['picked_up'], headerColor: 'bg-orange-500/20 text-orange-300 ring-1 ring-orange-500/30', dotColor: 'bg-orange-400' },
+  { key: 'in_progress', label: 'In Progress', statuses: ['stringing', 'strung'], headerColor: 'bg-purple-500/20 text-purple-300 ring-1 ring-purple-500/30', dotColor: 'bg-purple-400' },
+  { key: 'ready', label: 'Ready', statuses: ['ready_for_pickup'], headerColor: 'bg-green-500/20 text-green-300 ring-1 ring-green-500/30', dotColor: 'bg-green-400' },
+  { key: 'customer_pickup', label: 'Customer Pickup', statuses: ['picked_up_by_customer'], headerColor: 'bg-teal-500/20 text-teal-300 ring-1 ring-teal-500/30', dotColor: 'bg-teal-400' },
+  { key: 'review_done', label: 'Review / Done', statuses: ['review', 'completed'], headerColor: 'bg-amber-500/20 text-amber-300 ring-1 ring-amber-500/30', dotColor: 'bg-amber-400' },
+];
+
+// ── Status movement maps ────────────────────────────────────────────────
+const NEXT_STATUS: Record<string, string> = {
+  paid: 'dropped_off',
+  dropped_off: 'stringing',
+  picked_up: 'stringing',
+  stringing: 'strung',
+  strung: 'ready_for_pickup',
+  ready_for_pickup: 'picked_up_by_customer',
+  picked_up_by_customer: 'review',
+  review: 'completed',
+};
+
+const PREV_STATUS: Record<string, string> = {
+  dropped_off: 'paid',
+  picked_up: 'dropped_off',
+  stringing: 'dropped_off',
+  strung: 'stringing',
+  ready_for_pickup: 'strung',
+  picked_up_by_customer: 'ready_for_pickup',
+  review: 'picked_up_by_customer',
+  completed: 'review',
+};
+
+// Next status options for slide-over panel (array for multi-option)
+const NEXT_STATUS_OPTIONS: Record<string, string[]> = {
+  paid: ['dropped_off'],
+  dropped_off: ['stringing'],
+  picked_up: ['stringing'],
+  stringing: ['strung'],
+  strung: ['ready_for_pickup'],
+  ready_for_pickup: ['picked_up_by_customer'],
+  picked_up_by_customer: ['review'],
+  review: ['completed'],
+  completed: [],
+};
+
+// ── Group orders into columns ───────────────────────────────────────────
+type OrderType = typeof orders[number];
+
+const columnOrders: Record<string, OrderType[]> = {};
+for (const col of COLUMNS) {
+  columnOrders[col.key] = orders.filter(o => col.statuses.includes(o.status));
+}
+
+// Find which column key a status belongs to
+function columnKeyForStatus(status: string): string {
+  for (const col of COLUMNS) {
+    if (col.statuses.includes(status)) return col.key;
+  }
+  return 'review_done';
+}
+
+// Whether column has multiple statuses (needs sub-badge)
+function isMergedColumn(colKey: string): boolean {
+  const col = COLUMNS.find(c => c.key === colKey);
+  return col ? col.statuses.length > 1 : false;
+}
+---
+
+<AdminLayout
+  title="Kanban | RL Strings Admin"
+  description="Visual Order Pipeline"
+  activePage="Kanban"
+  pageTitle="Kanban"
+>
+  <!-- Break out of max-w-7xl container for wider board -->
+  <div class="-mx-4 sm:-mx-6 lg:-mx-8 px-3">
+    <!-- Toolbar -->
+    <div class="mb-4 flex items-center justify-between">
+      <p class="text-sm text-gray-400">
+        <span class="font-medium text-white">{orders.length}</span> total orders
+      </p>
+      <button
+        onclick="location.reload()"
+        class="inline-flex items-center gap-2 rounded-md bg-white/10 px-3 py-2 text-sm font-medium text-white hover:bg-white/20 transition-colors"
+      >
+        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+        Refresh
+      </button>
+    </div>
+
+    <!-- ═══════════ MOBILE: Tab-based view (< md) ═══════════ -->
+    <div class="md:hidden">
+      <!-- Tab bar -->
+      <div class="flex gap-2 overflow-x-auto pb-3 scrollbar-hide snap-x snap-mandatory" id="mobile-tab-bar">
+        {COLUMNS.map((col, i) => {
+          const count = columnOrders[col.key].length;
+          return (
+            <button
+              data-tab={col.key}
+              onclick={`switchTab('${col.key}')`}
+              class={`snap-start shrink-0 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+                i === 0
+                  ? col.headerColor
+                  : 'bg-gray-800/50 text-gray-400 ring-1 ring-white/10 hover:bg-white/5'
+              }`}
+            >
+              <span class={`w-1.5 h-1.5 rounded-full ${col.dotColor}`}></span>
+              {col.label}
+              <span class="text-[10px] opacity-70">{count}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      <!-- Tab content panels -->
+      {COLUMNS.map((col, i) => {
+        const colOrders = columnOrders[col.key];
+        const merged = isMergedColumn(col.key);
+        return (
+          <div
+            data-column={col.key}
+            class={`space-y-3 ${i === 0 ? '' : 'hidden'}`}
+          >
+            {colOrders.length === 0 ? (
+              <div class="rounded-lg bg-gray-800/30 p-8 ring-1 ring-white/5 text-center">
+                <p class="text-sm text-gray-600">No orders</p>
+              </div>
+            ) : (
+              colOrders.map((order) => {
+                const total = order.lineItems?.reduce((s, li) => s + li.totalAmount, 0) ?? 0;
+                const nextStatus = NEXT_STATUS[order.status];
+                const prevStatus = PREV_STATUS[order.status];
+                return (
+                  <div
+                    data-card={order._id}
+                    data-status={order.status}
+                    data-column-key={col.key}
+                    class="rounded-lg bg-gray-900/50 p-3 ring-1 ring-white/5 hover:ring-white/20 transition-all"
+                  >
+                    <div class="flex items-center justify-between mb-1.5">
+                      <span class="text-xs font-mono text-gray-400">#{order.pickupCode}</span>
+                      <span class="text-sm font-medium text-white">{total > 0 ? formatCents(total) : '—'}</span>
+                    </div>
+                    <p class="text-sm text-white truncate mb-1">{order.itemDescription}</p>
+                    <div class="flex items-center gap-1.5 mb-1">
+                      <span class={`w-1.5 h-1.5 rounded-full ${col.dotColor}`}></span>
+                      <span class="text-xs text-gray-400">{order.customerName}</span>
+                    </div>
+                    <p class="text-xs text-gray-500 truncate mb-2">{order.email}</p>
+                    {merged && (
+                      <span class={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium mb-2 ${statusColor(order.status)}`} data-sub-badge>
+                        {statusLabel(order.status)}
+                      </span>
+                    )}
+                    <div class="flex items-center gap-1.5 pt-2 border-t border-white/5">
+                      {prevStatus && (
+                        <button
+                          onclick={`moveOrder('${order._id}', '${prevStatus}', this)`}
+                          class="rounded bg-white/5 px-2 py-1 text-xs text-gray-400 hover:bg-white/10 hover:text-white transition-colors disabled:opacity-50"
+                          title={`Move to ${statusLabel(prevStatus)}`}
+                        >
+                          ←
+                        </button>
+                      )}
+                      {nextStatus && (
+                        <button
+                          onclick={`moveOrder('${order._id}', '${nextStatus}', this)`}
+                          class="rounded bg-white/5 px-2 py-1 text-xs text-gray-400 hover:bg-white/10 hover:text-white transition-colors disabled:opacity-50"
+                          title={`Move to ${statusLabel(nextStatus)}`}
+                        >
+                          →
+                        </button>
+                      )}
+                      <button
+                        onclick={`openPanel('${order._id}')`}
+                        class="ml-auto rounded bg-white/5 px-2 py-1 text-xs text-gray-400 hover:bg-white/10 hover:text-white transition-colors"
+                      >
+                        View
+                      </button>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        );
+      })}
+    </div>
+
+    <!-- ═══════════ DESKTOP: 7-column grid (md+) ═══════════ -->
+    <div class="hidden md:grid md:grid-cols-7 gap-3">
+      {COLUMNS.map((col) => {
+        const colOrders = columnOrders[col.key];
+        const merged = isMergedColumn(col.key);
+        return (
+          <div class="flex flex-col" data-desktop-column={col.key}>
+            <!-- Column header -->
+            <div class="flex items-center justify-between mb-3 px-1">
+              <div class="flex items-center gap-2">
+                <span class={`w-2 h-2 rounded-full ${col.dotColor}`}></span>
+                <span class="text-xs font-semibold text-gray-300 uppercase tracking-wider">{col.label}</span>
+              </div>
+              <span class={`inline-flex items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-bold ${col.headerColor}`} data-col-count={col.key}>
+                {colOrders.length}
+              </span>
+            </div>
+
+            <!-- Column body -->
+            <div
+              class="flex-1 bg-gray-800/30 rounded-lg ring-1 ring-white/5 p-2 space-y-2 max-h-[calc(100vh-220px)] overflow-y-auto"
+              data-col-body={col.key}
+            >
+              {colOrders.length === 0 ? (
+                <div class="py-8 text-center" data-empty-placeholder={col.key}>
+                  <p class="text-xs text-gray-600">No orders</p>
+                </div>
+              ) : (
+                colOrders.map((order) => {
+                  const total = order.lineItems?.reduce((s, li) => s + li.totalAmount, 0) ?? 0;
+                  const nextStatus = NEXT_STATUS[order.status];
+                  const prevStatus = PREV_STATUS[order.status];
+                  return (
+                    <div
+                      data-card={order._id}
+                      data-status={order.status}
+                      data-column-key={col.key}
+                      class="rounded-lg bg-gray-900/50 p-3 ring-1 ring-white/5 hover:ring-white/20 cursor-pointer transition-all"
+                      onclick={`openPanel('${order._id}')`}
+                    >
+                      <div class="flex items-center justify-between mb-1">
+                        <span class="text-xs font-mono text-gray-400">#{order.pickupCode}</span>
+                        <span class="text-xs font-medium text-white">{total > 0 ? formatCents(total) : '—'}</span>
+                      </div>
+                      <p class="text-xs text-white truncate mb-1.5">{order.itemDescription}</p>
+                      <div class="flex items-center gap-1.5 mb-0.5">
+                        <span class={`w-1.5 h-1.5 rounded-full ${col.dotColor}`}></span>
+                        <span class="text-[11px] text-gray-400 truncate">{order.customerName}</span>
+                      </div>
+                      <p class="text-[11px] text-gray-500 truncate">{order.email}</p>
+                      {merged && (
+                        <span class={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium mt-1.5 ${statusColor(order.status)}`} data-sub-badge>
+                          {statusLabel(order.status)}
+                        </span>
+                      )}
+                      <div class="flex items-center gap-1 mt-2 pt-2 border-t border-white/5" onclick="event.stopPropagation()">
+                        {prevStatus && (
+                          <button
+                            onclick={`moveOrder('${order._id}', '${prevStatus}', this)`}
+                            class="rounded bg-white/5 px-1.5 py-0.5 text-[10px] text-gray-400 hover:bg-white/10 hover:text-white transition-colors disabled:opacity-50"
+                            title={`Move to ${statusLabel(prevStatus)}`}
+                          >
+                            ←
+                          </button>
+                        )}
+                        {nextStatus && (
+                          <button
+                            onclick={`moveOrder('${order._id}', '${nextStatus}', this)`}
+                            class="rounded bg-white/5 px-1.5 py-0.5 text-[10px] text-gray-400 hover:bg-white/10 hover:text-white transition-colors disabled:opacity-50"
+                            title={`Move to ${statusLabel(nextStatus)}`}
+                          >
+                            →
+                          </button>
+                        )}
+                        <a
+                          href={`/admin/new/orders/${order._id}`}
+                          class="ml-auto rounded bg-white/5 px-1.5 py-0.5 text-[10px] text-gray-400 hover:bg-white/10 hover:text-white transition-colors"
+                        >
+                          Detail
+                        </a>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  </div>
+
+  <!-- ═══════════ SLIDE-OVER PANELS ═══════════ -->
+  {orders.map((order) => {
+    const total = order.lineItems?.reduce((s, li) => s + li.totalAmount, 0) ?? 0;
+    const nextStatuses = NEXT_STATUS_OPTIONS[order.status] ?? [];
+    const timestamps: { label: string; ts: number }[] = [
+      { label: 'Dropped Off', ts: order.droppedOffAt! },
+      { label: 'Picked Up', ts: order.pickedUpAt! },
+      { label: 'Stringing Started', ts: order.stringingAt! },
+      { label: 'Stringing Complete', ts: order.strungAt! },
+      { label: 'Ready for Pickup', ts: order.readyForPickupAt! },
+      { label: 'Picked Up by Customer', ts: order.pickedUpByCustomerAt! },
+      { label: 'Review', ts: order.reviewAt! },
+      { label: 'Completed', ts: order.completedAt! },
+    ].filter(t => !!t.ts);
+
+    return (
+      <div
+        id={`panel-${order._id}`}
+        data-panel-id={order._id}
+        class="fixed inset-y-0 right-0 z-50 w-full max-w-md hidden"
+        role="dialog"
+        aria-modal="true"
+      >
+        <!-- Backdrop -->
+        <div class="absolute inset-0 bg-black/50" onclick="closePanel()"></div>
+
+        <!-- Panel content -->
+        <div class="absolute inset-y-0 right-0 w-full max-w-md bg-gray-800 ring-1 ring-white/10 shadow-xl flex flex-col overflow-hidden">
+          <!-- Header -->
+          <div class="flex items-center justify-between px-6 py-4 border-b border-white/10 shrink-0">
+            <div class="flex items-center gap-3">
+              <span class="text-base font-semibold text-white font-mono">#{order.pickupCode}</span>
+              <span class={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${statusColor(order.status)}`} data-status-badge>
+                {statusLabel(order.status)}
+              </span>
+            </div>
+            <button onclick="closePanel()" class="rounded-md p-1.5 text-gray-400 hover:text-white hover:bg-white/10 transition-colors">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M6 18 18 6M6 6l12 12" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </button>
+          </div>
+
+          <!-- Scrollable body -->
+          <div class="flex-1 overflow-y-auto px-6 py-4 space-y-6">
+            <!-- Status Actions -->
+            <div>
+              <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Update Status</p>
+              <div class="flex flex-wrap gap-2" data-status-buttons>
+                {nextStatuses.length > 0 ? nextStatuses.map((ns) => (
+                  <button
+                    onclick={`handlePanelStatusUpdate('${order._id}', '${ns}', this)`}
+                    class="rounded-md bg-white/10 px-3 py-1.5 text-sm font-medium text-white hover:bg-white/20 transition-colors disabled:opacity-50"
+                  >
+                    → {statusLabel(ns)}
+                  </button>
+                )) : (
+                  <span class="text-sm text-gray-500">No further status updates available</span>
+                )}
+              </div>
+            </div>
+
+            <!-- Customer -->
+            <div>
+              <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Customer</p>
+              <div class="rounded-md bg-gray-900/50 px-4 py-3 space-y-1">
+                <p class="text-sm text-white font-medium">{order.customerName}</p>
+                <p class="text-sm text-gray-400">{order.email}</p>
+                {order.phone && <p class="text-sm text-gray-400">{order.phone}</p>}
+              </div>
+            </div>
+
+            <!-- Line Items -->
+            {order.lineItems && order.lineItems.length > 0 && (
+              <div>
+                <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Line Items</p>
+                <div class="rounded-md bg-gray-900/50 divide-y divide-white/5">
+                  {order.lineItems.map((li) => (
+                    <div class="flex items-center justify-between px-4 py-2.5">
+                      <div>
+                        <p class="text-sm text-white">{li.productName}</p>
+                        <p class="text-xs text-gray-500">Qty {li.quantity} × {formatCents(li.unitAmount)}</p>
+                      </div>
+                      <span class="text-sm text-white font-medium">{formatCents(li.totalAmount)}</span>
+                    </div>
+                  ))}
+                  <div class="flex items-center justify-between px-4 py-2.5">
+                    <span class="text-sm font-semibold text-white">Total</span>
+                    <span class="text-sm font-semibold text-white">{formatCents(total)}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <!-- Timestamps -->
+            {timestamps.length > 0 && (
+              <div>
+                <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Timeline</p>
+                <div class="space-y-1.5">
+                  {timestamps.map((t) => (
+                    <div class="flex items-center justify-between text-sm">
+                      <span class="text-gray-400">{t.label}</span>
+                      <span class="text-gray-300 text-xs">{formatDate(t.ts)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <!-- Footer -->
+          <div class="px-6 py-4 border-t border-white/10 shrink-0">
+            <a
+              href={`/admin/new/orders/${order._id}`}
+              class="block w-full text-center rounded-md bg-white/10 px-4 py-2 text-sm font-medium text-white hover:bg-white/20 transition-colors"
+            >
+              View Full Order →
+            </a>
+          </div>
+        </div>
+      </div>
+    );
+  })}
+</AdminLayout>
+
+<script>
+  // ── Config maps (duplicated for client-side use) ──────────────────────
+  const NEXT_STATUS: Record<string, string> = {
+    paid: 'dropped_off',
+    dropped_off: 'stringing',
+    picked_up: 'stringing',
+    stringing: 'strung',
+    strung: 'ready_for_pickup',
+    ready_for_pickup: 'picked_up_by_customer',
+    picked_up_by_customer: 'review',
+    review: 'completed',
+  };
+
+  const PREV_STATUS: Record<string, string> = {
+    dropped_off: 'paid',
+    picked_up: 'dropped_off',
+    stringing: 'dropped_off',
+    strung: 'stringing',
+    ready_for_pickup: 'strung',
+    picked_up_by_customer: 'ready_for_pickup',
+    review: 'picked_up_by_customer',
+    completed: 'review',
+  };
+
+  const NEXT_STATUS_OPTIONS: Record<string, string[]> = {
+    paid: ['dropped_off'],
+    dropped_off: ['stringing'],
+    picked_up: ['stringing'],
+    stringing: ['strung'],
+    strung: ['ready_for_pickup'],
+    ready_for_pickup: ['picked_up_by_customer'],
+    picked_up_by_customer: ['review'],
+    review: ['completed'],
+    completed: [],
+  };
+
+  const STATUS_LABELS: Record<string, string> = {
+    paid: 'Paid',
+    dropped_off: 'Dropped Off',
+    picked_up: 'Picked Up',
+    stringing: 'Stringing',
+    strung: 'Strung',
+    ready_for_pickup: 'Ready for Pickup',
+    picked_up_by_customer: 'Picked Up',
+    review: 'Review',
+    completed: 'Completed',
+  };
+
+  const STATUS_COLORS: Record<string, string> = {
+    paid: 'bg-blue-500/20 text-blue-300 ring-1 ring-blue-500/30',
+    dropped_off: 'bg-yellow-500/20 text-yellow-300 ring-1 ring-yellow-500/30',
+    picked_up: 'bg-orange-500/20 text-orange-300 ring-1 ring-orange-500/30',
+    stringing: 'bg-purple-500/20 text-purple-300 ring-1 ring-purple-500/30',
+    strung: 'bg-indigo-500/20 text-indigo-300 ring-1 ring-indigo-500/30',
+    ready_for_pickup: 'bg-green-500/20 text-green-300 ring-1 ring-green-500/30',
+    picked_up_by_customer: 'bg-teal-500/20 text-teal-300 ring-1 ring-teal-500/30',
+    review: 'bg-amber-500/20 text-amber-300 ring-1 ring-amber-500/30',
+    completed: 'bg-gray-500/20 text-gray-400 ring-1 ring-gray-500/30',
+  };
+
+  // Column key → statuses mapping (for determining target column)
+  const COLUMN_STATUSES: Record<string, string[]> = {
+    paid: ['paid'],
+    dropped_off: ['dropped_off'],
+    picked_up: ['picked_up'],
+    in_progress: ['stringing', 'strung'],
+    ready: ['ready_for_pickup'],
+    customer_pickup: ['picked_up_by_customer'],
+    review_done: ['review', 'completed'],
+  };
+
+  function columnKeyForStatus(status: string): string {
+    for (const [key, statuses] of Object.entries(COLUMN_STATUSES)) {
+      if (statuses.includes(status)) return key;
+    }
+    return 'review_done';
+  }
+
+  // ── Panel management ──────────────────────────────────────────────────
+  let currentPanelId: string | null = null;
+
+  function openPanel(orderId: string) {
+    if (currentPanelId) closePanel();
+    const panel = document.getElementById(`panel-${orderId}`);
+    if (panel) {
+      panel.classList.remove('hidden');
+      document.body.style.overflow = 'hidden';
+      currentPanelId = orderId;
+    }
+  }
+
+  function closePanel() {
+    if (currentPanelId) {
+      const panel = document.getElementById(`panel-${currentPanelId}`);
+      if (panel) panel.classList.add('hidden');
+      document.body.style.overflow = '';
+      currentPanelId = null;
+    }
+  }
+
+  // ── Mobile tab switching ──────────────────────────────────────────────
+  function switchTab(columnKey: string) {
+    // Hide all mobile column panels
+    document.querySelectorAll<HTMLElement>('[data-column]').forEach(el => {
+      el.classList.add('hidden');
+    });
+    // Show selected
+    const target = document.querySelector<HTMLElement>(`[data-column="${columnKey}"]`);
+    if (target) target.classList.remove('hidden');
+
+    // Update tab styling
+    const tabBar = document.getElementById('mobile-tab-bar');
+    if (tabBar) {
+      tabBar.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach(btn => {
+        const tabKey = btn.getAttribute('data-tab');
+        if (tabKey === columnKey) {
+          // Active: use column header color — get from COLUMN_TAB_COLORS
+          const activeColors = getTabActiveClasses(tabKey);
+          btn.className = `snap-start shrink-0 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${activeColors}`;
+        } else {
+          btn.className = 'snap-start shrink-0 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors bg-gray-800/50 text-gray-400 ring-1 ring-white/10 hover:bg-white/5';
+        }
+      });
+    }
+
+    // Update URL param
+    const url = new URL(window.location.href);
+    url.searchParams.set('col', columnKey);
+    history.replaceState(null, '', url.toString());
+  }
+
+  // Tab active class lookup
+  const COLUMN_TAB_COLORS: Record<string, string> = {
+    paid: 'bg-blue-500/20 text-blue-300 ring-1 ring-blue-500/30',
+    dropped_off: 'bg-yellow-500/20 text-yellow-300 ring-1 ring-yellow-500/30',
+    picked_up: 'bg-orange-500/20 text-orange-300 ring-1 ring-orange-500/30',
+    in_progress: 'bg-purple-500/20 text-purple-300 ring-1 ring-purple-500/30',
+    ready: 'bg-green-500/20 text-green-300 ring-1 ring-green-500/30',
+    customer_pickup: 'bg-teal-500/20 text-teal-300 ring-1 ring-teal-500/30',
+    review_done: 'bg-amber-500/20 text-amber-300 ring-1 ring-amber-500/30',
+  };
+
+  function getTabActiveClasses(key: string): string {
+    return COLUMN_TAB_COLORS[key] ?? 'bg-gray-500/20 text-gray-400 ring-1 ring-gray-500/30';
+  }
+
+  // ── Move order (card arrow buttons) ───────────────────────────────────
+  async function moveOrder(orderId: string, newStatus: string, btn: HTMLButtonElement) {
+    btn.disabled = true;
+    const originalText = btn.textContent ?? '';
+    btn.textContent = '…';
+
+    try {
+      const res = await fetch('/api/admin/order/status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: orderId, status: newStatus }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({})) as { error?: string };
+        throw new Error(data.error ?? 'Status update failed');
+      }
+
+      // Success — move card in DOM
+      const newColKey = columnKeyForStatus(newStatus);
+      const cards = document.querySelectorAll<HTMLElement>(`[data-card="${orderId}"]`);
+
+      cards.forEach(card => {
+        const currentColKey = card.getAttribute('data-column-key');
+        if (!currentColKey) return;
+
+        card.setAttribute('data-status', newStatus);
+        card.setAttribute('data-column-key', newColKey);
+
+        // Update sub-badge if in merged column
+        const subBadge = card.querySelector('[data-sub-badge]');
+        const isMerged = (COLUMN_STATUSES[newColKey]?.length ?? 0) > 1;
+        if (isMerged) {
+          const label = STATUS_LABELS[newStatus] ?? newStatus;
+          const color = STATUS_COLORS[newStatus] ?? 'bg-gray-500/20 text-gray-400 ring-1 ring-gray-500/30';
+          if (subBadge) {
+            subBadge.textContent = label;
+            subBadge.className = `inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium mt-1.5 ${color}`;
+          } else {
+            // Create sub-badge
+            const badge = document.createElement('span');
+            badge.setAttribute('data-sub-badge', '');
+            badge.className = `inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium mt-1.5 ${color}`;
+            badge.textContent = label;
+            // Insert before the button row
+            const buttonRow = card.querySelector('.border-t');
+            if (buttonRow) card.insertBefore(badge, buttonRow);
+          }
+        } else if (subBadge) {
+          subBadge.remove();
+        }
+
+        // Rebuild card action buttons
+        const nextSt = NEXT_STATUS[newStatus];
+        const prevSt = PREV_STATUS[newStatus];
+        const buttonRow = card.querySelector('.border-t');
+        if (buttonRow) {
+          let buttonsHtml = '';
+          if (prevSt) {
+            buttonsHtml += `<button onclick="moveOrder('${orderId}', '${prevSt}', this)" class="rounded bg-white/5 px-1.5 py-0.5 text-[10px] text-gray-400 hover:bg-white/10 hover:text-white transition-colors disabled:opacity-50" title="Move to ${STATUS_LABELS[prevSt] ?? prevSt}">←</button>`;
+          }
+          if (nextSt) {
+            buttonsHtml += `<button onclick="moveOrder('${orderId}', '${nextSt}', this)" class="rounded bg-white/5 px-1.5 py-0.5 text-[10px] text-gray-400 hover:bg-white/10 hover:text-white transition-colors disabled:opacity-50" title="Move to ${STATUS_LABELS[nextSt] ?? nextSt}">→</button>`;
+          }
+
+          // Desktop card has a detail link, mobile has a View button
+          const isDesktop = card.closest('[data-desktop-column]');
+          if (isDesktop) {
+            buttonsHtml += `<a href="/admin/new/orders/${orderId}" class="ml-auto rounded bg-white/5 px-1.5 py-0.5 text-[10px] text-gray-400 hover:bg-white/10 hover:text-white transition-colors">Detail</a>`;
+          } else {
+            buttonsHtml += `<button onclick="openPanel('${orderId}')" class="ml-auto rounded bg-white/5 px-2 py-1 text-xs text-gray-400 hover:bg-white/10 hover:text-white transition-colors">View</button>`;
+          }
+          buttonRow.innerHTML = buttonsHtml;
+        }
+
+        // Move card to new column container
+        if (currentColKey !== newColKey) {
+          // Desktop: find target column body
+          const desktopTarget = document.querySelector<HTMLElement>(`[data-col-body="${newColKey}"]`);
+          if (desktopTarget && card.closest('[data-desktop-column]')) {
+            // Remove empty placeholder if present
+            const placeholder = desktopTarget.querySelector(`[data-empty-placeholder]`);
+            if (placeholder) placeholder.remove();
+            desktopTarget.prepend(card);
+          }
+
+          // Mobile: find target column section
+          const mobileTarget = document.querySelector<HTMLElement>(`[data-column="${newColKey}"]`);
+          if (mobileTarget && card.closest('[data-column]')) {
+            // Remove empty placeholder if present
+            const placeholder = mobileTarget.querySelector('.text-center');
+            if (placeholder && placeholder.textContent?.trim() === 'No orders') {
+              placeholder.remove();
+            }
+            mobileTarget.prepend(card);
+            card.setAttribute('data-column-key', newColKey);
+          }
+
+          // Update column counts (desktop)
+          updateColumnCount(currentColKey);
+          updateColumnCount(newColKey);
+
+          // Update mobile tab counts
+          updateMobileTabCount(currentColKey);
+          updateMobileTabCount(newColKey);
+
+          // Check if old column is now empty (desktop)
+          const oldDesktopCol = document.querySelector<HTMLElement>(`[data-col-body="${currentColKey}"]`);
+          if (oldDesktopCol && oldDesktopCol.querySelectorAll('[data-card]').length === 0) {
+            const emptyDiv = document.createElement('div');
+            emptyDiv.className = 'py-8 text-center';
+            emptyDiv.setAttribute('data-empty-placeholder', currentColKey);
+            emptyDiv.innerHTML = '<p class="text-xs text-gray-600">No orders</p>';
+            oldDesktopCol.appendChild(emptyDiv);
+          }
+        }
+      });
+
+      // Update panel badge + buttons
+      const panelEl = document.querySelector<HTMLElement>(`[data-panel-id="${orderId}"]`);
+      if (panelEl) {
+        const panelBadge = panelEl.querySelector('[data-status-badge]');
+        if (panelBadge) {
+          panelBadge.textContent = STATUS_LABELS[newStatus] ?? newStatus;
+          panelBadge.className = `inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_COLORS[newStatus] ?? 'bg-gray-500/20 text-gray-400 ring-1 ring-gray-500/30'}`;
+        }
+
+        const btnContainer = panelEl.querySelector('[data-status-buttons]');
+        if (btnContainer) {
+          const nextOptions = NEXT_STATUS_OPTIONS[newStatus] ?? [];
+          if (nextOptions.length > 0) {
+            btnContainer.innerHTML = nextOptions
+              .map(s => `<button onclick="handlePanelStatusUpdate('${orderId}', '${s}', this)" class="rounded-md bg-white/10 px-3 py-1.5 text-sm font-medium text-white hover:bg-white/20 transition-colors disabled:opacity-50">→ ${STATUS_LABELS[s] ?? s}</button>`)
+              .join('');
+          } else {
+            btnContainer.innerHTML = '<span class="text-sm text-gray-500">No further status updates available</span>';
+          }
+        }
+      }
+
+    } catch (err) {
+      console.error(err);
+      btn.disabled = false;
+      btn.textContent = originalText;
+      showToast(`Failed: ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
+    }
+  }
+
+  // ── Panel status update (from slide-over) ─────────────────────────────
+  async function handlePanelStatusUpdate(orderId: string, newStatus: string, btn: HTMLButtonElement) {
+    btn.disabled = true;
+    const originalText = btn.textContent ?? '';
+    btn.textContent = 'Updating…';
+
+    try {
+      const res = await fetch('/api/admin/order/status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: orderId, status: newStatus }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({})) as { error?: string };
+        throw new Error(data.error ?? 'Status update failed');
+      }
+
+      // Delegate to moveOrder's DOM update logic by finding a card button
+      // But simpler: just update panel + cards directly
+      const newColKey = columnKeyForStatus(newStatus);
+      const cards = document.querySelectorAll<HTMLElement>(`[data-card="${orderId}"]`);
+
+      cards.forEach(card => {
+        const currentColKey = card.getAttribute('data-column-key') ?? '';
+        card.setAttribute('data-status', newStatus);
+        card.setAttribute('data-column-key', newColKey);
+
+        // Update sub-badge
+        const subBadge = card.querySelector('[data-sub-badge]');
+        const isMerged = (COLUMN_STATUSES[newColKey]?.length ?? 0) > 1;
+        if (isMerged) {
+          const label = STATUS_LABELS[newStatus] ?? newStatus;
+          const color = STATUS_COLORS[newStatus] ?? 'bg-gray-500/20 text-gray-400 ring-1 ring-gray-500/30';
+          if (subBadge) {
+            subBadge.textContent = label;
+            subBadge.className = `inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium mt-1.5 ${color}`;
+          }
+        } else if (subBadge) {
+          subBadge.remove();
+        }
+
+        // Rebuild action buttons
+        const nextSt = NEXT_STATUS[newStatus];
+        const prevSt = PREV_STATUS[newStatus];
+        const buttonRow = card.querySelector('.border-t');
+        if (buttonRow) {
+          let buttonsHtml = '';
+          if (prevSt) {
+            buttonsHtml += `<button onclick="moveOrder('${orderId}', '${prevSt}', this)" class="rounded bg-white/5 px-1.5 py-0.5 text-[10px] text-gray-400 hover:bg-white/10 hover:text-white transition-colors disabled:opacity-50" title="Move to ${STATUS_LABELS[prevSt] ?? prevSt}">←</button>`;
+          }
+          if (nextSt) {
+            buttonsHtml += `<button onclick="moveOrder('${orderId}', '${nextSt}', this)" class="rounded bg-white/5 px-1.5 py-0.5 text-[10px] text-gray-400 hover:bg-white/10 hover:text-white transition-colors disabled:opacity-50" title="Move to ${STATUS_LABELS[nextSt] ?? nextSt}">→</button>`;
+          }
+          const isDesktop = card.closest('[data-desktop-column]');
+          if (isDesktop) {
+            buttonsHtml += `<a href="/admin/new/orders/${orderId}" class="ml-auto rounded bg-white/5 px-1.5 py-0.5 text-[10px] text-gray-400 hover:bg-white/10 hover:text-white transition-colors">Detail</a>`;
+          } else {
+            buttonsHtml += `<button onclick="openPanel('${orderId}')" class="ml-auto rounded bg-white/5 px-2 py-1 text-xs text-gray-400 hover:bg-white/10 hover:text-white transition-colors">View</button>`;
+          }
+          buttonRow.innerHTML = buttonsHtml;
+        }
+
+        // Move card between columns if needed
+        if (currentColKey !== newColKey) {
+          const desktopTarget = document.querySelector<HTMLElement>(`[data-col-body="${newColKey}"]`);
+          if (desktopTarget && card.closest('[data-desktop-column]')) {
+            const placeholder = desktopTarget.querySelector('[data-empty-placeholder]');
+            if (placeholder) placeholder.remove();
+            desktopTarget.prepend(card);
+          }
+
+          const mobileTarget = document.querySelector<HTMLElement>(`[data-column="${newColKey}"]`);
+          if (mobileTarget && card.closest('[data-column]')) {
+            const placeholder = mobileTarget.querySelector('.text-center');
+            if (placeholder && placeholder.textContent?.trim() === 'No orders') placeholder.remove();
+            mobileTarget.prepend(card);
+          }
+
+          updateColumnCount(currentColKey);
+          updateColumnCount(newColKey);
+          updateMobileTabCount(currentColKey);
+          updateMobileTabCount(newColKey);
+
+          // Add empty placeholder to old column if needed
+          const oldCol = document.querySelector<HTMLElement>(`[data-col-body="${currentColKey}"]`);
+          if (oldCol && oldCol.querySelectorAll('[data-card]').length === 0) {
+            const emptyDiv = document.createElement('div');
+            emptyDiv.className = 'py-8 text-center';
+            emptyDiv.setAttribute('data-empty-placeholder', currentColKey);
+            emptyDiv.innerHTML = '<p class="text-xs text-gray-600">No orders</p>';
+            oldCol.appendChild(emptyDiv);
+          }
+        }
+      });
+
+      // Update panel badge
+      const panelEl = document.querySelector<HTMLElement>(`[data-panel-id="${orderId}"]`);
+      if (panelEl) {
+        const panelBadge = panelEl.querySelector('[data-status-badge]');
+        if (panelBadge) {
+          panelBadge.textContent = STATUS_LABELS[newStatus] ?? newStatus;
+          panelBadge.className = `inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_COLORS[newStatus] ?? 'bg-gray-500/20 text-gray-400 ring-1 ring-gray-500/30'}`;
+        }
+
+        // Re-render panel status buttons
+        const panelBtnContainer = panelEl.querySelector('[data-status-buttons]');
+        if (panelBtnContainer) {
+          const nextOptions = NEXT_STATUS_OPTIONS[newStatus] ?? [];
+          if (nextOptions.length > 0) {
+            panelBtnContainer.innerHTML = nextOptions
+              .map(s => `<button onclick="handlePanelStatusUpdate('${orderId}', '${s}', this)" class="rounded-md bg-white/10 px-3 py-1.5 text-sm font-medium text-white hover:bg-white/20 transition-colors disabled:opacity-50">→ ${STATUS_LABELS[s] ?? s}</button>`)
+              .join('');
+          } else {
+            panelBtnContainer.innerHTML = '<span class="text-sm text-gray-500">No further status updates available</span>';
+          }
+        }
+      }
+
+    } catch (err) {
+      console.error(err);
+      btn.disabled = false;
+      btn.textContent = originalText;
+      showToast(`Failed: ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
+    }
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────────────
+  function updateColumnCount(colKey: string) {
+    const countEl = document.querySelector<HTMLElement>(`[data-col-count="${colKey}"]`);
+    if (countEl) {
+      const colBody = document.querySelector<HTMLElement>(`[data-col-body="${colKey}"]`);
+      const count = colBody ? colBody.querySelectorAll('[data-card]').length : 0;
+      countEl.textContent = String(count);
+    }
+  }
+
+  function updateMobileTabCount(colKey: string) {
+    const tab = document.querySelector<HTMLButtonElement>(`[data-tab="${colKey}"]`);
+    if (tab) {
+      const mobileCol = document.querySelector<HTMLElement>(`[data-column="${colKey}"]`);
+      const count = mobileCol ? mobileCol.querySelectorAll('[data-card]').length : 0;
+      // The count span is the last child span with opacity-70
+      const countSpan = tab.querySelector<HTMLSpanElement>('span.text-\\[10px\\]');
+      if (countSpan) countSpan.textContent = String(count);
+    }
+  }
+
+  function showToast(message: string, type: 'error' | 'success' = 'error') {
+    const toast = document.createElement('div');
+    toast.className = `fixed bottom-4 right-4 z-[100] rounded-lg px-4 py-3 text-sm font-medium shadow-lg transition-opacity ${
+      type === 'error' ? 'bg-red-900/90 text-red-200 ring-1 ring-red-500/30' : 'bg-green-900/90 text-green-200 ring-1 ring-green-500/30'
+    }`;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    setTimeout(() => {
+      toast.style.opacity = '0';
+      setTimeout(() => toast.remove(), 300);
+    }, 3000);
+  }
+
+  // ── Init ──────────────────────────────────────────────────────────────
+  // Mobile: restore tab from URL param or default to first non-empty column
+  const urlParams = new URLSearchParams(window.location.search);
+  const savedCol = urlParams.get('col');
+  const columnKeys = Object.keys(COLUMN_STATUSES);
+
+  if (savedCol && columnKeys.includes(savedCol)) {
+    switchTab(savedCol);
+  } else {
+    // Find first non-empty column for mobile, or default to first
+    let defaultCol = columnKeys[0];
+    for (const key of columnKeys) {
+      const colEl = document.querySelector<HTMLElement>(`[data-column="${key}"]`);
+      if (colEl && colEl.querySelectorAll('[data-card]').length > 0) {
+        defaultCol = key;
+        break;
+      }
+    }
+    // Only switch if not already showing the first column
+    if (defaultCol !== columnKeys[0]) {
+      switchTab(defaultCol);
+    }
+  }
+
+  // Escape key closes panel
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closePanel();
+  });
+
+  // Expose functions to inline onclick handlers
+  (window as any).openPanel = openPanel;
+  (window as any).closePanel = closePanel;
+  (window as any).moveOrder = moveOrder;
+  (window as any).handlePanelStatusUpdate = handlePanelStatusUpdate;
+  (window as any).switchTab = switchTab;
+</script>
