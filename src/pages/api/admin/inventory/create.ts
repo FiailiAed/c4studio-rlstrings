@@ -1,6 +1,9 @@
 import type { APIRoute } from 'astro';
 import { ConvexHttpClient } from 'convex/browser';
 import { api } from '../../../../../convex/_generated/api';
+import type { FunctionArgs } from 'convex/server';
+
+type CreateArgs = FunctionArgs<typeof api.inventory.createStripeProduct>;
 
 type Category = 'head' | 'shaft' | 'mesh' | 'strings' | 'service' | 'upsell';
 type PlayerType = 'boys' | 'girls' | 'goalies';
@@ -52,10 +55,10 @@ export const POST: APIRoute = async ({ request, locals }) => {
       name,
       description,
       unitAmount,
-      category: category as Parameters<typeof api.inventory.createStripeProduct>[0]['category'],
+      category: category as CreateArgs['category'],
       showInShop,
       showInBuilder,
-      playerType: playerType as Parameters<typeof api.inventory.createStripeProduct>[0]['playerType'],
+      playerType: playerType as CreateArgs['playerType'],
       stock,
     });
 

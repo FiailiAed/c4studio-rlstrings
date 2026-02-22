@@ -70,7 +70,7 @@ export const createPublicCheckout = action({
       "metadata[orderType]": "product",
       "metadata[pickupCode]": pickupCode,
       ...(args.pocketPreference ? { "metadata[pocketPreference]": args.pocketPreference } : {}),
-      success_url: `${origin}/order/${pickupCode}`,
+      success_url: `${origin}/order/thank-you?session_id={CHECKOUT_SESSION_ID}&code=${pickupCode}`,
       cancel_url: `${origin}/checkout/cancel`,
     });
 

@@ -700,16 +700,7 @@ const grouped = Object.fromEntries(
   }
 
   // Expose to inline handlers
-  type Globals = {
-    openProductPanel: typeof openProductPanel;
-    closeProductPanel: typeof closeProductPanel;
-    syncFromStripe: typeof syncFromStripe;
-    submitEdit: typeof submitEdit;
-    confirmArchive: typeof confirmArchive;
-    submitNewProduct: typeof submitNewProduct;
-    switchTab: typeof switchTab;
-  };
-  const w = window as Window & Globals;
+  const w = window;
   w.openProductPanel = openProductPanel;
   w.closeProductPanel = closeProductPanel;
   w.syncFromStripe = syncFromStripe;

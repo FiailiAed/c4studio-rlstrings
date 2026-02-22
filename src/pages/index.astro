@@ -96,8 +96,9 @@ const carouselCSS = buildCarouselCSS(imageCount, cycleDuration);
       Expertly strung lacrosse pockets, custom built for your style of play.
     </p>
     <a
+      id="cta-btn-1"
       href="/shop"
-      class="inline-flex items-center gap-2 bg-black text-white px-8 py-4 rounded-lg font-bold text-lg hover:bg-gray-800 transition"
+      class="inline-flex items-center gap-2 bg-black text-white px-8 py-4 rounded-lg font-bold text-lg"
     >
       Build Your Pocket
       <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -260,8 +261,9 @@ const carouselCSS = buildCarouselCSS(imageCount, cycleDuration);
   <section class="max-w-3xl mx-auto px-4 py-16 text-center">
     <h2 class="text-3xl font-black text-gray-900 mb-4">Ready to Dial In Your Game?</h2>
     <a
+      id="cta-btn-2"
       href="/shop"
-      class="inline-flex items-center gap-2 bg-black text-white px-8 py-4 rounded-lg font-bold text-lg hover:bg-gray-800 transition"
+      class="inline-flex items-center gap-2 bg-black text-white px-8 py-4 rounded-lg font-bold text-lg"
     >
       Start Your Build
       <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -270,4 +272,43 @@ const carouselCSS = buildCarouselCSS(imageCount, cycleDuration);
       </svg>
     </a>
   </section>
+
+<script>
+(function () {
+  const BTNS = ['cta-btn-1', 'cta-btn-2']
+    .map(id => document.getElementById(id))
+    .filter((el): el is HTMLElement => el !== null);
+
+  BTNS.forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      btn.style.pointerEvents = 'none';
+      var arrow = btn.querySelector('svg:last-of-type');
+      if (arrow) {
+        var spinner = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        spinner.setAttribute('class', 'w-5 h-5 animate-spin flex-shrink-0');
+        spinner.setAttribute('viewBox', '0 0 24 24');
+        spinner.setAttribute('fill', 'none');
+        spinner.setAttribute('stroke', 'currentColor');
+        spinner.setAttribute('stroke-width', '2.5');
+        var path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.setAttribute('stroke-linecap', 'round');
+        path.setAttribute('d', 'M12 2a10 10 0 0 1 10 10');
+        spinner.appendChild(path);
+        arrow.replaceWith(spinner);
+      }
+    });
+
+    if (!window.matchMedia('(hover: none)').matches) {
+      btn.addEventListener('mousemove', function (e) {
+        var r = btn.getBoundingClientRect();
+        btn.style.background =
+          'radial-gradient(circle 100px at ' + (e.clientX - r.left) + 'px ' + (e.clientY - r.top) + 'px, #e7e5e4, #030712)';
+      });
+      btn.addEventListener('mouseleave', function () {
+        btn.style.background = '';
+      });
+    }
+  });
+})();
+</script>
 </ShopLayout>

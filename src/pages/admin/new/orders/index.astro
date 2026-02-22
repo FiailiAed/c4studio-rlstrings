@@ -410,7 +410,7 @@ const NEXT_STATUS: Record<string, string[]> = {
   });
 
   // Expose to inline onclick handlers
-  (window as Window & { openPanel: typeof openPanel; closePanel: typeof closePanel; handleStatusUpdate: typeof handleStatusUpdate }).openPanel = openPanel;
-  (window as Window & { openPanel: typeof openPanel; closePanel: typeof closePanel; handleStatusUpdate: typeof handleStatusUpdate }).closePanel = closePanel;
-  (window as Window & { openPanel: typeof openPanel; closePanel: typeof closePanel; handleStatusUpdate: typeof handleStatusUpdate }).handleStatusUpdate = handleStatusUpdate;
+  window.openPanel = openPanel;
+  window.closePanel = closePanel;
+  window.handleStatusUpdate = handleStatusUpdate;
 </script>
