@@ -202,7 +202,7 @@ export const sendOrderConfirmationEmail = internalAction({
     const { error } = await resend.emails.send({
       from: FROM_ADDRESS,
       to: args.email,
-      reply_to: '1822lax@gmail.com',
+      replyTo: '1822lax@gmail.com',
       subject: `Order Confirmed – Pickup Code: ${args.pickupCode}`,
       html,
     });
