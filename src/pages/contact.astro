@@ -1,0 +1,86 @@
+---
+export const prerender = true;
+
+import ShopLayout from '../layouts/ShopLayout.astro';
+
+// TODO: Replace YOUR_FORM_ID with your actual Formspree form ID
+// Create a free account at https://formspree.io and paste the form ID below
+const FORMSPREE_ID = 'YOUR_FORM_ID';
+---
+
+<ShopLayout
+  title="RL Strings | Contact"
+  description="Get in touch with RL Strings. Questions about stringing, rush orders, or anything else."
+>
+  <div class="max-w-3xl mx-auto px-4 py-16 space-y-10">
+
+    <!-- ===== HEADER ===== -->
+    <div class="text-center">
+      <h1 class="text-4xl font-black tracking-tight text-gray-900 mb-3">Get In Touch</h1>
+      <p class="text-gray-500">Questions about your order, rush requests, or just curious? We'd love to hear from you.</p>
+    </div>
+
+    <!-- ===== CONTACT FORM ===== -->
+    <div class="bg-white border border-gray-200 rounded-xl p-8">
+      <form
+        action={`https://formspree.io/f/${FORMSPREE_ID}`}
+        method="POST"
+        class="space-y-5"
+      >
+        <div>
+          <label for="name" class="block text-sm font-semibold text-gray-700 mb-1">Name</label>
+          <input
+            id="name"
+            name="name"
+            type="text"
+            required
+            placeholder="Your name"
+            class="w-full border border-gray-300 rounded-lg px-4 py-3 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-black/20 focus:border-black transition"
+          />
+        </div>
+
+        <div>
+          <label for="email" class="block text-sm font-semibold text-gray-700 mb-1">Email</label>
+          <input
+            id="email"
+            name="email"
+            type="email"
+            required
+            placeholder="you@example.com"
+            class="w-full border border-gray-300 rounded-lg px-4 py-3 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-black/20 focus:border-black transition"
+          />
+        </div>
+
+        <div>
+          <label for="message" class="block text-sm font-semibold text-gray-700 mb-1">Message</label>
+          <textarea
+            id="message"
+            name="message"
+            required
+            rows="5"
+            placeholder="What's on your mind?"
+            class="w-full border border-gray-300 rounded-lg px-4 py-3 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-black/20 focus:border-black transition resize-none"
+          ></textarea>
+        </div>
+
+        <button
+          type="submit"
+          class="w-full bg-black hover:bg-gray-800 text-white font-bold py-3 px-6 rounded-lg transition"
+        >
+          Send Message
+        </button>
+      </form>
+    </div>
+
+    <!-- ===== LOCATION CARD ===== -->
+    <div class="bg-white border border-gray-200 rounded-xl p-6 space-y-3">
+      <h2 class="font-bold text-gray-900">Drop Off In Person</h2>
+      <div class="text-gray-600 text-sm space-y-1">
+        <p class="font-semibold text-gray-900">Stellar Athletics</p>
+        <p>876 North Lenola Road</p>
+        <p>Moorestown, New Jersey 08057</p>
+      </div>
+    </div>
+
+  </div>
+</ShopLayout>

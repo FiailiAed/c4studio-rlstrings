@@ -12,9 +12,9 @@ export default defineConfig({
   integrations: [
     react(),
     clerk({
-      afterSignInUrl: '/',
-      afterSignUpUrl: '/',
-      signInUrl: '/sign-in',
+      signInFallbackRedirectUrl: '/admin',
+      signUpFallbackRedirectUrl: '/',
+      signInUrl: '/admin/sign-in',
     }),
   ],
   vite: {

@@ -1,34 +1,29 @@
 ---
-import MainLayout from '../../layouts/MainLayout.astro';
+import ShopLayout from '../../layouts/ShopLayout.astro';
 
 const notFound = Astro.url.searchParams.get('notfound') !== null;
 ---
 
-<MainLayout
+<ShopLayout
   title="RL Strings | Find Your Order"
   description="Enter your 4-digit pickup code to check your order status."
 >
-  <section class="flex flex-col items-center justify-center min-h-[60vh] px-4">
-    <div class="w-full max-w-md bg-slate-900/50 backdrop-blur-sm border border-slate-700/50 rounded-xl p-8 space-y-6">
+  <section class="flex flex-col items-center justify-center min-h-[60vh] px-4 py-12">
+    <div class="w-full max-w-md bg-white border border-gray-200 rounded-xl p-8 space-y-6 shadow-sm">
       <div class="text-center space-y-2">
-        <h1 class="text-3xl font-black uppercase tracking-tight">
-          Find Your <span class="text-transparent bg-clip-text bg-gradient-to-br from-red-500 to-red-700">Order</span>
-        </h1>
-        <p class="text-slate-400 text-sm">Enter your 4-digit pickup code to check your order status.</p>
+        <h1 class="text-3xl font-black tracking-tight text-gray-900">Find Your Order</h1>
+        <p class="text-gray-500 text-sm">Enter your 4-digit pickup code to check your order status.</p>
       </div>
 
       {notFound && (
-        <div class="bg-red-900/40 border border-red-700/50 rounded-lg px-4 py-3 text-red-300 text-sm text-center">
+        <div class="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-red-700 text-sm text-center">
           No order found with that code. Please double-check and try again.
         </div>
       )}
 
-      <form
-        id="order-lookup"
-        class="space-y-4"
-      >
+      <form id="order-lookup" class="space-y-4">
         <div class="space-y-2">
-          <label for="pickup-code" class="block text-sm font-semibold text-slate-300">
+          <label for="pickup-code" class="block text-sm font-semibold text-gray-700">
             Pickup Code
           </label>
           <input
@@ -39,29 +34,42 @@ const notFound = Astro.url.searchParams.get('notfound') !== null;
             maxlength="4"
             placeholder="1234"
             required
-            class="w-full bg-slate-800/60 border border-slate-600/50 rounded-lg px-4 py-3 text-white text-center text-2xl font-mono tracking-widest placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:border-red-500/50 transition"
+            autocomplete="off"
+            class="w-full bg-white border border-gray-300 rounded-lg px-4 py-3 text-gray-900 text-center text-2xl font-mono tracking-widest placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-black/20 focus:border-black transition"
           />
         </div>
 
         <button
           type="submit"
-          class="w-full bg-red-600 hover:bg-red-500 text-white font-bold py-3 px-6 rounded-lg transition-colors uppercase tracking-wide"
+          class="w-full bg-black hover:bg-gray-800 text-white font-bold py-3 px-6 rounded-lg transition uppercase tracking-wide"
         >
           Find My Order
         </button>
       </form>
+
+      <p class="text-center text-xs text-gray-400">
+        Your pickup code was emailed to you after checkout.
+      </p>
     </div>
   </section>
 
-  <script>
-    const form = document.getElementById('order-lookup') as HTMLFormElement;
-    form?.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const input = document.getElementById('pickup-code') as HTMLInputElement;
-      const code = input.value.trim();
-      if (code.length === 4 && /^\d{4}$/.test(code)) {
-        window.location.href = `/order/${code}`;
-      }
-    });
+  <script is:inline>
+    (function() {
+      var form = document.getElementById('order-lookup');
+      var input = document.getElementById('pickup-code');
+
+      // Auto-format: digits only
+      input.addEventListener('input', function() {
+        input.value = input.value.replace(/\D/g, '').slice(0, 4);
+      });
+
+      form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        var code = input.value.trim();
+        if (code.length === 4 && /^\d{4}$/.test(code)) {
+          window.location.href = '/order/' + code;
+        }
+      });
+    })();
   </script>
-</MainLayout>
+</ShopLayout>

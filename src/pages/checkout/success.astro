@@ -1,0 +1,55 @@
+---
+export const prerender = true;
+
+import ShopLayout from '../../layouts/ShopLayout.astro';
+---
+
+<ShopLayout
+  title="RL Strings | Order Confirmed"
+  description="Your order has been received. Check your email for your pickup code."
+>
+  <section class="flex flex-col items-center justify-center min-h-[60vh] px-4 py-16 text-center">
+    <div class="w-full max-w-md space-y-6">
+
+      <!-- Success Icon -->
+      <div class="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto">
+        <svg class="w-10 h-10 text-green-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+          <polyline points="22 4 12 14.01 9 11.01" />
+        </svg>
+      </div>
+
+      <div>
+        <h1 class="text-3xl font-black text-gray-900 mb-3">Order Received!</h1>
+        <p class="text-gray-500">
+          Thanks for your order. Check your email for your <strong class="text-gray-900">4-digit pickup code</strong> — you'll need it to track your order and pick up your stick.
+        </p>
+      </div>
+
+      <div class="bg-gray-50 border border-gray-200 rounded-xl p-5 text-left space-y-2 text-sm text-gray-600">
+        <p class="font-semibold text-gray-900">What happens next?</p>
+        <ol class="space-y-1 list-decimal list-inside">
+          <li>Drop your stick off at Stellar Athletics (876 N Lenola Rd, Moorestown, NJ)</li>
+          <li>We'll string your pocket within 2-3 business days</li>
+          <li>You'll get an email when it's ready for pickup</li>
+        </ol>
+      </div>
+
+      <div class="flex flex-col sm:flex-row gap-3 justify-center">
+        <a
+          href="/order"
+          class="inline-flex items-center justify-center gap-2 bg-black text-white px-6 py-3 rounded-lg font-bold hover:bg-gray-800 transition"
+        >
+          Track My Order
+        </a>
+        <a
+          href="/"
+          class="inline-flex items-center justify-center gap-2 border border-gray-300 text-gray-700 px-6 py-3 rounded-lg font-medium hover:bg-gray-50 transition"
+        >
+          Back to Home
+        </a>
+      </div>
+
+    </div>
+  </section>
+</ShopLayout>

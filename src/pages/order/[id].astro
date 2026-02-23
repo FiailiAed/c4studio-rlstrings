@@ -1,13 +1,9 @@
 ---
-import MainLayout from '../../layouts/MainLayout.astro';
+export const prerender = false;
+
+import ShopLayout from '../../layouts/ShopLayout.astro';
 import { ConvexHttpClient } from 'convex/browser';
 import { api } from '../../../convex/_generated/api';
-import DropOffConfirm from '../../components/DropOffConfirm.tsx';
-import CustomerPickupConfirm from '../../components/CustomerPickupConfirm.tsx';
-import OrderStatusStepper from '../../components/OrderStatusStepper.tsx';
-import IslandLoader from '../../components/IslandLoader.astro';
-
-const convexUrl = import.meta.env.PUBLIC_CONVEX_URL;
 
 const { id } = Astro.params;
 if (!id) return Astro.redirect('/order');
@@ -17,6 +13,9 @@ const order = await client.query(api.orders.getPublicOrderByPickupCode, { pickup
 
 if (!order) return Astro.redirect('/order?notfound=true');
 
+const successParam = Astro.url.searchParams.get('success');
+const errorParam = Astro.url.searchParams.get('error');
+
 function formatDate(ts: number | null): string {
   if (!ts) return '';
   return new Date(ts).toLocaleDateString('en-US', {
@@ -24,97 +23,331 @@ function formatDate(ts: number | null): string {
     hour: 'numeric', minute: '2-digit',
   });
 }
+
+// Map status to stepper step index (0-based, 5 steps)
+// Steps: Ordered | Dropped Off | Stringing | Ready | Picked Up
+const STATUS_STEP: Record<string, number> = {
+  paid: 0,
+  dropped_off: 1,
+  picked_up: 2,
+  stringing: 2,
+  strung: 2,
+  ready_for_pickup: 3,
+  picked_up_by_customer: 4,
+  review: 4,
+  completed: 4,
+};
+
+const STEP_LABELS = ['Ordered', 'Dropped Off', 'Stringing', 'Ready!', 'Picked Up'];
+const currentStep = STATUS_STEP[order.status] ?? 0;
+
+const status = order.status;
 ---
 
-<MainLayout
+<ShopLayout
   title={`RL Strings | Order ${id}`}
   description="Check your order status."
 >
-  <section class="max-w-2xl mx-auto space-y-6 px-4 pb-28">
+  <div class="max-w-2xl mx-auto px-4 py-10 space-y-6">
 
-    <!-- Order Code Block with Collapsible Details -->
-    <div class="bg-slate-900/50 backdrop-blur-sm border border-slate-700/50 rounded-xl p-6 text-center space-y-4">
-      <p class="text-slate-400 text-xs uppercase tracking-widest">Your Unique Order Code</p>
-      <p class="text-6xl font-mono font-black tracking-widest text-white">{order.pickupCode}</p>
+    <!-- ===== SUCCESS / ERROR BANNERS ===== -->
+    {successParam === 'dropoff' && (
+      <div class="bg-green-50 border border-green-200 rounded-xl px-5 py-4 text-green-800 text-sm font-medium">
+        Drop-off confirmed! We'll get started on your order shortly.
+      </div>
+    )}
+    {successParam === 'pickup' && (
+      <div class="bg-green-50 border border-green-200 rounded-xl px-5 py-4 text-green-800 text-sm font-medium">
+        Pickup confirmed! Enjoy your newly strung stick.
+      </div>
+    )}
+    {errorParam && (
+      <div class="bg-red-50 border border-red-200 rounded-xl px-5 py-4 text-red-700 text-sm">
+        {errorParam === 'wrong-code' && 'Confirmation code does not match. Please try again.'}
+        {errorParam === 'not-ready' && 'This order is not ready for that action yet.'}
+        {errorParam === 'already-done' && 'This action has already been completed.'}
+        {errorParam === 'server' && 'Something went wrong. Please try again.'}
+      </div>
+    )}
+
+    <!-- ===== ORDER CODE + LINE ITEMS ===== -->
+    <div class="bg-white border border-gray-200 rounded-xl p-6 text-center space-y-4">
+      <p class="text-gray-400 text-xs uppercase tracking-widest">Your Pickup Code</p>
+      <p class="text-6xl font-mono font-black tracking-widest text-gray-900">{order.pickupCode}</p>
 
       <details class="text-left">
-        <summary class="text-slate-400 text-xs uppercase tracking-widest cursor-pointer hover:text-slate-300 transition-colors text-center">
+        <summary class="text-gray-400 text-xs uppercase tracking-widest cursor-pointer hover:text-gray-600 transition text-center select-none">
           View Order Details
         </summary>
         <div class="mt-4 space-y-2">
           {order.lineItems && order.lineItems.length > 0 ? (
             <table class="w-full text-sm">
               <thead>
-                <tr class="border-b border-slate-700/50 text-slate-400 text-xs uppercase">
+                <tr class="border-b border-gray-100 text-gray-400 text-xs uppercase">
                   <th class="text-left pb-2 font-semibold">Item</th>
                   <th class="text-center pb-2 font-semibold">Qty</th>
                   <th class="text-right pb-2 font-semibold">Price</th>
                   <th class="text-right pb-2 font-semibold">Total</th>
                 </tr>
               </thead>
-              <tbody class="divide-y divide-slate-700/30">
+              <tbody class="divide-y divide-gray-100">
                 {order.lineItems.map((item) => (
                   <tr>
-                    <td class="py-2 text-white">{item.productName}</td>
-                    <td class="py-2 text-center text-slate-300">{item.quantity}</td>
-                    <td class="py-2 text-right text-slate-300">${(item.unitAmount / 100).toFixed(2)}</td>
-                    <td class="py-2 text-right text-white font-semibold">${(item.totalAmount / 100).toFixed(2)}</td>
+                    <td class="py-2 text-gray-900">{item.productName}</td>
+                    <td class="py-2 text-center text-gray-500">{item.quantity}</td>
+                    <td class="py-2 text-right text-gray-500">${(item.unitAmount / 100).toFixed(2)}</td>
+                    <td class="py-2 text-right text-gray-900 font-semibold">${(item.totalAmount / 100).toFixed(2)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           ) : (
-            <p class="text-slate-300">{order.itemDescription}</p>
+            <p class="text-gray-500 text-sm">{order.itemDescription}</p>
           )}
         </div>
       </details>
     </div>
 
-    <!-- Drop-Off Confirmation -->
-    <IslandLoader>
-      <DropOffConfirm client:load pickupCode={order.pickupCode} convexUrl={convexUrl} />
-    </IslandLoader>
+    <!-- ===== PROGRESS STEPPER ===== -->
+    <div class="bg-white border border-gray-200 rounded-xl p-5">
+      <div class="flex items-center">
+        {STEP_LABELS.map((label, i) => (
+          <Fragment>
+            <div class="flex flex-col items-center">
+              <!-- Circle -->
+              <div class={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border-2 ${
+                i <= currentStep
+                  ? 'bg-black border-black text-white'
+                  : 'bg-white border-gray-200 text-gray-400'
+              }`}>
+                {i < currentStep ? (
+                  <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                ) : (
+                  <span>{i + 1}</span>
+                )}
+              </div>
+              <!-- Label -->
+              <span class={`mt-1 text-xs text-center leading-tight w-12 ${
+                i <= currentStep ? 'text-gray-900 font-semibold' : 'text-gray-400'
+              }`}>
+                {label}
+              </span>
+            </div>
+            {i < STEP_LABELS.length - 1 && (
+              <div class={`h-0.5 flex-1 mx-1 mb-4 ${i < currentStep ? 'bg-black' : 'bg-gray-200'}`} />
+            )}
+          </Fragment>
+        ))}
+      </div>
+    </div>
 
-    <!-- Customer Pickup Confirmation -->
-    <IslandLoader>
-      <CustomerPickupConfirm client:load pickupCode={order.pickupCode} convexUrl={convexUrl} />
-    </IslandLoader>
+    <!-- ===== ACTION SECTION ===== -->
 
-    <!-- Timestamps -->
-    {(order.droppedOffAt || order.completedAt) && (
-      <div class="bg-slate-900/50 backdrop-blur-sm border border-slate-700/50 rounded-xl p-6 space-y-2 text-sm">
+    {/* STATUS: paid → show drop-off form */}
+    {status === 'paid' && (
+      <div class="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
+        <h2 class="font-bold text-lg text-gray-900">Ready to Drop Off?</h2>
+        <p class="text-gray-500 text-sm">
+          Bring your stick to <strong>Stellar Athletics</strong> (876 North Lenola Road, Moorestown, NJ) and confirm your drop-off below.
+        </p>
+        <form method="POST" action="/api/order/drop-off" id="dropoff-form" class="space-y-4">
+          <input type="hidden" name="pickupCode" value={order.pickupCode} />
+          <div>
+            <label for="confirm-code" class="block text-sm font-semibold text-gray-700 mb-1">
+              Re-enter your pickup code to confirm
+            </label>
+            <input
+              id="confirm-code"
+              name="confirmCode"
+              type="text"
+              inputmode="numeric"
+              pattern="[0-9]{4}"
+              maxlength="4"
+              placeholder="1234"
+              required
+              autocomplete="off"
+              class="w-full bg-white border border-gray-300 rounded-lg px-4 py-3 text-gray-900 text-center text-2xl font-mono tracking-widest placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-black/20 focus:border-black transition"
+            />
+          </div>
+          <button
+            type="submit"
+            id="dropoff-submit"
+            class="w-full bg-black hover:bg-gray-800 text-white font-bold py-3 px-6 rounded-lg transition"
+          >
+            Confirm Drop-Off
+          </button>
+        </form>
+      </div>
+    )}
+
+    {/* STATUS: in-progress states → show status message */}
+    {(status === 'dropped_off' || status === 'picked_up' || status === 'stringing' || status === 'strung') && (
+      <div class="bg-white border border-gray-200 rounded-xl p-6 space-y-2">
+        <h2 class="font-bold text-lg text-gray-900">Your Order is In Progress</h2>
+        <p class="text-gray-500 text-sm">
+          We're working on your pocket. Check back in a day or two — we'll send an email when it's ready for pickup.
+        </p>
+        <a
+          href={`/order/${order.pickupCode}`}
+          class="inline-flex items-center gap-1 mt-2 text-sm text-gray-600 hover:text-black transition"
+        >
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 12a9 9 0 1 0 18 0 9 9 0 0 0-18 0" />
+            <polyline points="12 8 12 12 14 14" />
+          </svg>
+          Refresh status
+        </a>
+      </div>
+    )}
+
+    {/* STATUS: ready_for_pickup → show pickup confirmation form */}
+    {status === 'ready_for_pickup' && (
+      <div class="bg-white border border-green-200 rounded-xl p-6 space-y-4">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
+            <svg class="w-6 h-6 text-green-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+              <polyline points="22 4 12 14.01 9 11.01" />
+            </svg>
+          </div>
+          <h2 class="font-bold text-lg text-gray-900">Your Stick is Ready!</h2>
+        </div>
+        <p class="text-gray-500 text-sm">
+          Come pick it up at <strong>Stellar Athletics</strong> (876 North Lenola Road, Moorestown, NJ).
+          Confirm below when you've picked it up.
+        </p>
+        <form method="POST" action="/api/order/pickup" id="pickup-form" class="space-y-4">
+          <input type="hidden" name="pickupCode" value={order.pickupCode} />
+          <div>
+            <label for="pickup-confirm-code" class="block text-sm font-semibold text-gray-700 mb-1">
+              Re-enter your pickup code to confirm
+            </label>
+            <input
+              id="pickup-confirm-code"
+              name="confirmCode"
+              type="text"
+              inputmode="numeric"
+              pattern="[0-9]{4}"
+              maxlength="4"
+              placeholder="1234"
+              required
+              autocomplete="off"
+              class="w-full bg-white border border-gray-300 rounded-lg px-4 py-3 text-gray-900 text-center text-2xl font-mono tracking-widest placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-black/20 focus:border-black transition"
+            />
+          </div>
+          <button
+            type="submit"
+            id="pickup-submit"
+            class="w-full bg-black hover:bg-gray-800 text-white font-bold py-3 px-6 rounded-lg transition"
+          >
+            Confirm Pickup
+          </button>
+        </form>
+      </div>
+    )}
+
+    {/* STATUS: picked_up_by_customer / review → show review prompt */}
+    {(status === 'picked_up_by_customer' || status === 'review') && (
+      <div class="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
+        <h2 class="font-bold text-lg text-gray-900">Enjoy Your New Pocket!</h2>
+        <p class="text-gray-500 text-sm">
+          Hope you love it. If you have a minute, a quick Google review goes a long way — it helps other players find us.
+        </p>
+        <form method="POST" action="/api/order/review">
+          <input type="hidden" name="pickupCode" value={order.pickupCode} />
+          <button
+            type="submit"
+            class="inline-flex items-center gap-2 bg-black hover:bg-gray-800 text-white font-bold py-3 px-6 rounded-lg transition"
+          >
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+            </svg>
+            Leave a Google Review
+          </button>
+        </form>
+      </div>
+    )}
+
+    {/* STATUS: completed → done */}
+    {status === 'completed' && (
+      <div class="bg-white border border-gray-200 rounded-xl p-6 space-y-2">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
+            <svg class="w-6 h-6 text-green-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+              <polyline points="22 4 12 14.01 9 11.01" />
+            </svg>
+          </div>
+          <h2 class="font-bold text-lg text-gray-900">Order Complete</h2>
+        </div>
+        <p class="text-gray-500 text-sm">Thanks for choosing RL Strings. Enjoy your stick!</p>
+      </div>
+    )}
+
+    <!-- ===== TIMESTAMPS ===== -->
+    {(order.droppedOffAt || order.pickedUpByCustomerAt || order.completedAt) && (
+      <div class="bg-white border border-gray-200 rounded-xl p-5 space-y-2 text-sm">
         {order.droppedOffAt && (
-          <div class="flex justify-between text-slate-300">
-            <span class="text-slate-400">Dropped off</span>
-            <span>{formatDate(order.droppedOffAt)}</span>
+          <div class="flex justify-between text-gray-500">
+            <span>Dropped off</span>
+            <span class="text-gray-900">{formatDate(order.droppedOffAt)}</span>
           </div>
         )}
         {order.pickedUpByCustomerAt && (
-          <div class="flex justify-between text-slate-300">
-            <span class="text-slate-400">Picked up</span>
-            <span>{formatDate(order.pickedUpByCustomerAt)}</span>
+          <div class="flex justify-between text-gray-500">
+            <span>Picked up</span>
+            <span class="text-gray-900">{formatDate(order.pickedUpByCustomerAt)}</span>
           </div>
         )}
         {order.completedAt && (
-          <div class="flex justify-between text-slate-300">
-            <span class="text-slate-400">Completed</span>
-            <span>{formatDate(order.completedAt)}</span>
+          <div class="flex justify-between text-gray-500">
+            <span>Completed</span>
+            <span class="text-gray-900">{formatDate(order.completedAt)}</span>
           </div>
         )}
       </div>
     )}
 
-    <!-- Footer link -->
+    <!-- ===== FOOTER LINK ===== -->
     <div class="text-center pb-4">
-      <a href="/order" class="text-slate-400 hover:text-white text-sm underline underline-offset-4 transition-colors">
+      <a href="/order" class="text-gray-400 hover:text-gray-700 text-sm underline underline-offset-4 transition">
         Check another order
       </a>
     </div>
 
-  </section>
+  </div>
 
-  <!-- Fixed Bottom Stepper -->
-  <IslandLoader>
-    <OrderStatusStepper client:load pickupCode={order.pickupCode} convexUrl={convexUrl} />
-  </IslandLoader>
-</MainLayout>
+  <script is:inline>
+    (function() {
+      // Auto-format numeric-only inputs
+      ['confirm-code', 'pickup-confirm-code'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener('input', function() {
+          el.value = el.value.replace(/\D/g, '').slice(0, 4);
+        });
+      });
+
+      // Confirmation dialog before submit
+      var dropoffForm = document.getElementById('dropoff-form');
+      if (dropoffForm) {
+        dropoffForm.addEventListener('submit', function(e) {
+          if (!confirm('Confirm drop-off? Make sure your stick is at Stellar Athletics.')) {
+            e.preventDefault();
+          }
+        });
+      }
+
+      var pickupForm = document.getElementById('pickup-form');
+      if (pickupForm) {
+        pickupForm.addEventListener('submit', function(e) {
+          if (!confirm('Confirm pickup? You\'re taking your stick home today.')) {
+            e.preventDefault();
+          }
+        });
+      }
+    })();
+  </script>
+</ShopLayout>

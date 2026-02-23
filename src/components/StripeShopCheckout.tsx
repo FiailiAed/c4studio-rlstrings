@@ -340,8 +340,9 @@ export default function StripeShopCheckout({ products, convexUrl }: StripeShopCh
         quantity: item.quantity,
       }));
       const mode = hasRecurring ? 'subscription' as const : 'payment' as const;
+      const siteUrl = window.location.origin;
 
-      const result = await client.action(api.stripe.createPublicCheckout, { items, mode });
+      const result = await client.action(api.stripe.createPublicCheckout, { items, mode, siteUrl });
 
       if (result.url) {
         window.location.href = result.url;
