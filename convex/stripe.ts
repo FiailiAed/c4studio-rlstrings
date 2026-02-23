@@ -7,10 +7,10 @@ const stripeClient = new StripeSubscriptions(components.stripe, {});
 
 // Create a checkout session for a subscription
 export const createSubscriptionCheckout = action({
-  args: { priceId: v.string() },
+  args: { priceId: v.string(), siteUrl: v.string() },
   returns: v.object({
     sessionId: v.string(),
-    url: v.union(v.string(), v.null()),
+    url: v.union(v.string(), v.null(), url: v.string() ,
   }),
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -25,8 +25,8 @@ export const createSubscriptionCheckout = action({
 
     // TODO: Delete old env var
     // const origin = process.env.SITE_URL ?? "https://rlstrings.com";
-    // const origin = args.url ?? process.env.SITE_URL;
-    const origin = args.url ?? "https://rlstrings.com";
+    // const origin = args.siteUrl ?? process.env.SITE_URL;
+    const origin = args.siteUrl ?? "https://rlstrings.com";
 
 
     // Create checkout session
@@ -108,7 +108,7 @@ export const createPublicCheckout = action({
 
 // Create a checkout session for a one-time payment
 export const createPaymentCheckout = action({
-  args: { priceId: v.string() },
+  args: { priceId: v.string(), siteUrl: v.string() },
   returns: v.object({
     sessionId: v.string(),
     url: v.union(v.string(), v.null()),
@@ -125,8 +125,8 @@ export const createPaymentCheckout = action({
 
     // TODO: Delete old env var
     // const origin = process.env.SITE_URL ?? "https://rlstrings.com";
-    // const origin = args.url ?? process.env.SITE_URL;
-    const origin = args.url ?? "https://rlstrings.com";
+    // const origin = args.siteUrl ?? process.env.SITE_URL;
+    const origin = args.siteUrl ?? "https://rlstrings.com";
 
 
     return await stripeClient.createCheckoutSession(ctx, {
