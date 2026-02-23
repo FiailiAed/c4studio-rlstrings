@@ -25,8 +25,8 @@ export const createSubscriptionCheckout = action({
 
     // TODO: Delete old env var
     // const origin = process.env.SITE_URL ?? "https://rlstrings.com";
-    // const origin = args.siteUrl ?? process.env.SITE_URL;
-    const origin = args.siteUrl ?? "https://rlstrings.com";
+    // const origin = args.url ?? process.env.SITE_URL;
+    const origin = args.url ?? "https://rlstrings.com";
 
 
     // Create checkout session
@@ -125,8 +125,8 @@ export const createPaymentCheckout = action({
 
     // TODO: Delete old env var
     // const origin = process.env.SITE_URL ?? "https://rlstrings.com";
-    // const origin = args.siteUrl ?? process.env.SITE_URL;
-    const origin = args.siteUrl ?? "https://rlstrings.com";
+    // const origin = args.url ?? process.env.SITE_URL;
+    const origin = args.url ?? "https://rlstrings.com";
 
 
     return await stripeClient.createCheckoutSession(ctx, {
