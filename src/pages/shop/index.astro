@@ -468,6 +468,9 @@ const defaultHero = products.find((p) => p.images.length > 0)?.images[0] ?? '';
       var byoCheckbox = document.getElementById('byo-head');
       var headGrid = document.getElementById('head-products');
 
+      // ---- WINDOW REFS ----
+      var siteUrl = window.location.origin;
+
       // ---- SECTION TOGGLES ----
       document.querySelectorAll('.section-toggle').forEach(function(btn) {
         btn.addEventListener('click', function() {
@@ -759,6 +762,7 @@ const defaultHero = products.find((p) => p.images.length > 0)?.images[0] ?? '';
             items: items,
             mode: 'payment',
             pocketPreference: state.pocket,
+            siteUrl: siteUrl,
           }),
         })
         .then(function(res) {

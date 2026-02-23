@@ -4,10 +4,11 @@ import { api } from '../../../convex/_generated/api';
 
 export const POST: APIRoute = async ({ request }) => {
   try {
-    const { items, mode, pocketPreference } = await request.json() as {
+    const { items, mode, pocketPreference, siteUrl } = await request.json() as {
       items: Array<{ priceId: string; quantity: number }>;
       mode: 'payment' | 'subscription';
       pocketPreference?: string;
+      siteUrl?: string;
     };
 
     if (!items || items.length === 0) {
@@ -27,6 +28,7 @@ export const POST: APIRoute = async ({ request }) => {
       items,
       mode,
       pocketPreference,
+      siteUrl,
     });
 
     return new Response(JSON.stringify(result), {

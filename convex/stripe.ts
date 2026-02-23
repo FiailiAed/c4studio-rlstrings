@@ -23,7 +23,11 @@ export const createSubscriptionCheckout = action({
       name: identity.name,
     });
 
-    const origin = process.env.SITE_URL ?? "https://rlstrings.com";
+    // TODO: Delete old env var
+    // const origin = process.env.SITE_URL ?? "https://rlstrings.com";
+    // const origin = args.siteUrl ?? process.env.SITE_URL;
+    const origin = args.siteUrl ?? "https://rlstrings.com";
+
 
     // Create checkout session
     return await stripeClient.createCheckoutSession(ctx, {
@@ -43,6 +47,7 @@ export const createPublicCheckout = action({
     items: v.array(v.object({ priceId: v.string(), quantity: v.number() })),
     mode: v.union(v.literal("payment"), v.literal("subscription")),
     pocketPreference: v.optional(v.string()),
+    siteUrl: v.optional(v.string()),
   },
   returns: v.object({
     sessionId: v.string(),
@@ -53,7 +58,10 @@ export const createPublicCheckout = action({
     if (!stripeKey) throw new Error("STRIPE_SECRET_KEY not configured");
     if (args.items.length === 0) throw new Error("No items provided");
 
-    const origin = process.env.SITE_URL ?? "https://rlstrings.com";
+    // TODO: Delete old env var
+    // const origin = process.env.SITE_URL ?? "https://rlstrings.com";
+    // const origin = args.siteUrl ?? process.env.SITE_URL;
+    const origin = args.siteUrl ?? "https://rlstrings.com";
 
     // Find a unique pickup code (retry up to 10 times)
     let pickupCode = "";
@@ -115,7 +123,11 @@ export const createPaymentCheckout = action({
       name: identity.name,
     });
 
-    const origin = process.env.SITE_URL ?? "https://rlstrings.com";
+    // TODO: Delete old env var
+    // const origin = process.env.SITE_URL ?? "https://rlstrings.com";
+    // const origin = args.siteUrl ?? process.env.SITE_URL;
+    const origin = args.siteUrl ?? "https://rlstrings.com";
+
 
     return await stripeClient.createCheckoutSession(ctx, {
       priceId: args.priceId,
