@@ -1,4 +1,5 @@
 import { query, mutation, internalMutation } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { v } from "convex/values";
 
 // Get a single order by ID (admin)
@@ -56,6 +57,16 @@ export const createNewOrderAfterStripeCheckoutSession = internalMutation({
       lineItems: args.lineItems,
       pickupCode,
       status: "paid",
+    });
+
+    await ctx.scheduler.runAfter(0, internal.email.sendOrderConfirmationEmail, {
+      customerName: args.customerName,
+      email: args.email,
+      phone: args.phone,
+      pickupCode,
+      lineItems: args.lineItems,
+      itemDescription: args.itemDescription,
+      orderType: args.orderType,
     });
   },
 });
