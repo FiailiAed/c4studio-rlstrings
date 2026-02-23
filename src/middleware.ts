@@ -1,6 +1,6 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/astro/server';
 
-const isAdminRoute = createRouteMatcher(['/admin(.*)']);
+const isAdminRoute = createRouteMatcher(['/admin(.*)', '/dev(.*)']);
 const isAdminSignIn = createRouteMatcher(['/admin/sign-in']);
 
 export const onRequest = clerkMiddleware((auth, context) => {

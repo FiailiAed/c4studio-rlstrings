@@ -1,48 +1,48 @@
 ---
-import ShopLayout from '../../layouts/ShopLayout.astro';
 import { SignIn as ClerkSignIn } from '@clerk/astro/components';
+
+const { userId } = Astro.locals.auth();
+if (userId) return Astro.redirect('/admin');
 ---
-
-<ShopLayout
-  title="Admin Sign In | RL Strings"
-  description="Sign in to the RL Strings admin dashboard."
->
-  <section class="min-h-[calc(100vh-14rem)] flex items-center justify-center px-4 py-12">
-    <div class="w-full max-w-md">
-      <div class="text-center mb-8">
-        <h1 class="text-2xl font-bold text-gray-900">Admin Sign In</h1>
-        <p class="text-gray-500 mt-1 text-sm">Access the RL Strings admin dashboard</p>
-      </div>
-
-      <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-        <ClerkSignIn
-          appearance={{
-            elements: {
-              rootBox: "w-full",
-              card: "bg-transparent shadow-none w-full p-0",
-              headerTitle: "text-gray-900",
-              headerSubtitle: "text-gray-500",
-              formButtonPrimary:
-                "bg-gray-900 hover:bg-gray-800 text-white font-semibold rounded-lg transition-all",
-              formFieldInput:
-                "border-gray-300 text-gray-900 rounded-lg focus:border-gray-900 focus:ring-gray-900/10 transition-colors",
-              formFieldLabel: "text-gray-700 font-medium",
-              footerActionLink: "text-gray-900 hover:text-gray-700 font-semibold",
-              dividerLine: "bg-gray-200",
-              dividerText: "text-gray-400",
-              socialButtonsBlockButton:
-                "border-gray-200 hover:border-gray-300 text-gray-700 rounded-lg transition-all",
-              alertText: "text-red-600",
-              logoBox: "hidden",
-            },
-            layout: {
-              socialButtonsPlacement: "bottom",
-              socialButtonsVariant: "blockButton",
-            },
-          }}
-        />
-
-      </div>
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-gray-950">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Admin Sign In | RL Strings</title>
+</head>
+<body class="h-full flex items-center justify-center px-4 py-12">
+  <div class="w-full max-w-md">
+    <div class="text-center mb-8">
+      <p class="text-xs font-semibold uppercase tracking-widest text-gray-500 mb-2">RL Strings Admin</p>
+      <h1 class="text-2xl font-bold text-white">Sign In</h1>
     </div>
-  </section>
-</ShopLayout>
+    <div class="rounded-2xl bg-gray-900 ring-1 ring-white/10 p-6 overflow-hidden">
+      <ClerkSignIn
+        forceRedirectUrl="/admin"
+        appearance={{
+          elements: {
+            rootBox: "w-full",
+            card: "bg-transparent shadow-none w-full p-0",
+            headerTitle: "text-white",
+            headerSubtitle: "text-gray-400",
+            formButtonPrimary: "bg-white hover:bg-gray-100 text-gray-900 font-semibold rounded-lg transition-all",
+            formFieldInput: "border-gray-700 bg-gray-800 text-white rounded-lg focus:border-gray-500 focus:ring-gray-500/10 transition-colors",
+            formFieldLabel: "text-gray-300 font-medium",
+            footerActionLink: "text-white hover:text-gray-300 font-semibold",
+            dividerLine: "bg-gray-700",
+            dividerText: "text-gray-500",
+            socialButtonsBlockButton: "border-gray-700 bg-gray-800 hover:bg-gray-700 text-gray-200 rounded-lg transition-all",
+            alertText: "text-red-400",
+            logoBox: "hidden",
+          },
+          layout: {
+            socialButtonsPlacement: "bottom",
+            socialButtonsVariant: "blockButton",
+          },
+        }}
+      />
+    </div>
+  </div>
+</body>
+</html>

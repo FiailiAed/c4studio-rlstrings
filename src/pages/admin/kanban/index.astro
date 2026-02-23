@@ -1,7 +1,7 @@
 ---
-import AdminLayout from '../../../../layouts/AdminLayout.astro';
+import AdminLayout from '../../../layouts/AdminLayout.astro';
 import { ConvexHttpClient } from 'convex/browser';
-import { api } from '../../../../../convex/_generated/api';
+import { api } from '../../../../convex/_generated/api';
 
 const auth = Astro.locals.auth();
 const { userId } = auth;
@@ -138,6 +138,7 @@ function isMergedColumn(colKey: string): boolean {
         <span class="font-medium text-white">{orders.length}</span> total orders
       </p>
       <button
+        id="refresh-btn"
         onclick="location.reload()"
         class="inline-flex items-center gap-2 rounded-md bg-white/10 px-3 py-2 text-sm font-medium text-white hover:bg-white/20 transition-colors"
       >
@@ -322,7 +323,7 @@ function isMergedColumn(colKey: string): boolean {
                           </button>
                         )}
                         <a
-                          href={`/admin/new/orders/${order._id}`}
+                          href={`/admin/orders/${order._id}`}
                           class="ml-auto rounded bg-white/5 px-1.5 py-0.5 text-[10px] text-gray-400 hover:bg-white/10 hover:text-white transition-colors"
                         >
                           Detail
@@ -452,7 +453,7 @@ function isMergedColumn(colKey: string): boolean {
           <!-- Footer -->
           <div class="px-6 py-4 border-t border-white/10 shrink-0">
             <a
-              href={`/admin/new/orders/${order._id}`}
+              href={`/admin/orders/${order._id}`}
               class="block w-full text-center rounded-md bg-white/10 px-4 py-2 text-sm font-medium text-white hover:bg-white/20 transition-colors"
             >
               View Full Order →
@@ -678,7 +679,7 @@ function isMergedColumn(colKey: string): boolean {
           // Desktop card has a detail link, mobile has a View button
           const isDesktop = card.closest('[data-desktop-column]');
           if (isDesktop) {
-            buttonsHtml += `<a href="/admin/new/orders/${orderId}" class="ml-auto rounded bg-white/5 px-1.5 py-0.5 text-[10px] text-gray-400 hover:bg-white/10 hover:text-white transition-colors">Detail</a>`;
+            buttonsHtml += `<a href="/admin/orders/${orderId}" class="ml-auto rounded bg-white/5 px-1.5 py-0.5 text-[10px] text-gray-400 hover:bg-white/10 hover:text-white transition-colors">Detail</a>`;
           } else {
             buttonsHtml += `<button onclick="openPanel('${orderId}')" class="ml-auto rounded bg-white/5 px-2 py-1 text-xs text-gray-400 hover:bg-white/10 hover:text-white transition-colors">View</button>`;
           }
@@ -814,7 +815,7 @@ function isMergedColumn(colKey: string): boolean {
           }
           const isDesktop = card.closest('[data-desktop-column]');
           if (isDesktop) {
-            buttonsHtml += `<a href="/admin/new/orders/${orderId}" class="ml-auto rounded bg-white/5 px-1.5 py-0.5 text-[10px] text-gray-400 hover:bg-white/10 hover:text-white transition-colors">Detail</a>`;
+            buttonsHtml += `<a href="/admin/orders/${orderId}" class="ml-auto rounded bg-white/5 px-1.5 py-0.5 text-[10px] text-gray-400 hover:bg-white/10 hover:text-white transition-colors">Detail</a>`;
           } else {
             buttonsHtml += `<button onclick="openPanel('${orderId}')" class="ml-auto rounded bg-white/5 px-2 py-1 text-xs text-gray-400 hover:bg-white/10 hover:text-white transition-colors">View</button>`;
           }
@@ -954,4 +955,29 @@ function isMergedColumn(colKey: string): boolean {
   (window as any).moveOrder = moveOrder;
   (window as any).handlePanelStatusUpdate = handlePanelStatusUpdate;
   (window as any).switchTab = switchTab;
+</script>
+
+<script>
+(function () {
+  var btn = document.getElementById('refresh-btn');
+  if (!btn) return;
+  btn.addEventListener('click', function () {
+    if (!btn) return;
+    btn.style.pointerEvents = 'none';
+    var icon = btn.querySelector('svg');
+    if (icon) {
+      var s = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      s.setAttribute('class', 'h-4 w-4 animate-spin flex-shrink-0');
+      s.setAttribute('viewBox', '0 0 24 24');
+      s.setAttribute('fill', 'none');
+      s.setAttribute('stroke', 'currentColor');
+      s.setAttribute('stroke-width', '1.5');
+      var p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      p.setAttribute('stroke-linecap', 'round');
+      p.setAttribute('d', 'M12 2a10 10 0 0 1 10 10');
+      s.appendChild(p);
+      icon.replaceWith(s);
+    }
+  });
+})();
 </script>

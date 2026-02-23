@@ -23,10 +23,10 @@ const userName = claims?.name ?? 'Admin';
 const userEmail = claims?.email ?? '';
 
 const navLinks = [
-  { label: 'Dashboard', href: '/admin/new' },
-  { label: 'Orders', href: '/admin/new/orders' },
-  { label: 'Inventory', href: '/admin/new/products' },
-  { label: 'Kanban', href: '/admin/new/kanban' },
+  { label: 'Dashboard', href: '/admin' },
+  { label: 'Orders', href: '/admin/orders' },
+  { label: 'Inventory', href: '/admin/products' },
+  { label: 'Kanban', href: '/admin/kanban' },
 ];
 ---
 
@@ -50,7 +50,7 @@ const navLinks = [
             <div class="flex items-center">
               <!-- Logo -->
               <div class="shrink-0">
-                <a href="/admin/new" class="flex items-center gap-2">
+                <a href="/admin" class="flex items-center gap-2">
                   <div class="w-8 h-8 bg-white/10 rounded flex items-center justify-center">
                     <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                       <circle cx="12" cy="12" r="10" />

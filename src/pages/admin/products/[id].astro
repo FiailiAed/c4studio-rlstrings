@@ -1,15 +1,15 @@
 ---
-import AdminLayout from '../../../../layouts/AdminLayout.astro';
+import AdminLayout from '../../../layouts/AdminLayout.astro';
 import { ConvexHttpClient } from 'convex/browser';
-import { api } from '../../../../../convex/_generated/api';
-import type { Id } from '../../../../../convex/_generated/dataModel';
+import { api } from '../../../../convex/_generated/api';
+import type { Id } from '../../../../convex/_generated/dataModel';
 
 const auth = Astro.locals.auth();
 const { userId } = auth;
 if (!userId) return Astro.redirect('/admin/sign-in');
 
 const { id } = Astro.params;
-if (!id) return Astro.redirect('/admin/new/products');
+if (!id) return Astro.redirect('/admin/products');
 
 const client = new ConvexHttpClient(import.meta.env.PUBLIC_CONVEX_URL);
 
@@ -18,7 +18,7 @@ const [product, allOrders] = await Promise.all([
   client.query(api.orders.listOrders),
 ]);
 
-if (!product) return Astro.redirect('/admin/new/products');
+if (!product) return Astro.redirect('/admin/products');
 
 // Filter orders that contain this product's priceId
 const relatedOrders = allOrders.filter((o) =>
@@ -68,7 +68,7 @@ function statusColor(s: string) { return STATUS_COLORS[s] ?? 'bg-gray-500/20 tex
 >
   <!-- Back link -->
   <div class="mb-6">
-    <a href="/admin/new/products" class="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-white transition-colors">
+    <a href="/admin/products" class="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-white transition-colors">
       <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
         <path d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" stroke-linecap="round" stroke-linejoin="round" />
       </svg>
@@ -195,7 +195,7 @@ function statusColor(s: string) { return STATUS_COLORS[s] ?? 'bg-gray-500/20 tex
               return (
                 <tr class="hover:bg-white/5 transition-colors">
                   <td class="px-6 py-3">
-                    <a href={`/admin/new/orders/${order._id}`} class="text-sm font-mono font-medium text-white hover:text-gray-300 transition-colors">
+                    <a href={`/admin/orders/${order._id}`} class="text-sm font-mono font-medium text-white hover:text-gray-300 transition-colors">
                       #{order.pickupCode}
                     </a>
                   </td>
@@ -373,7 +373,7 @@ function statusColor(s: string) { return STATUS_COLORS[s] ?? 'bg-gray-500/20 tex
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Archive failed');
 
-      window.location.href = '/admin/new/products';
+      window.location.href = '/admin/products';
     } catch (err) {
       console.error(err);
       alert('Archive failed: ' + (err.message || 'Unknown error'));

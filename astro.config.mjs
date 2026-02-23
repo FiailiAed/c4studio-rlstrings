@@ -12,8 +12,8 @@ export default defineConfig({
   integrations: [
     react(),
     clerk({
-      afterSignInUrl: '/admin/new',
-      afterSignUpUrl: '/',
+      signInFallbackRedirectUrl: '/admin',
+      signUpFallbackRedirectUrl: '/',
       signInUrl: '/admin/sign-in',
     }),
   ],
