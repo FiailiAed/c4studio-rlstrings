@@ -144,6 +144,7 @@ export const confirmDropOff = mutation({
   args: {
     pickupCode: v.string(),
     confirmCode: v.string(),
+    dropOffPhotoUrl: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const order = await ctx.db
@@ -166,6 +167,7 @@ export const confirmDropOff = mutation({
     await ctx.db.patch(order._id, {
       status: "dropped_off",
       droppedOffAt: Date.now(),
+      dropOffPhotoUrl: args.dropOffPhotoUrl,
     });
   },
 });
@@ -242,6 +244,7 @@ export const getPublicOrderByPickupCode = query({
       reviewAt: order.reviewAt ?? null,
       completedAt: order.completedAt ?? null,
       lineItems: order.lineItems ?? null,
+      dropOffPhotoUrl: order.dropOffPhotoUrl ?? null,
     };
   },
 });

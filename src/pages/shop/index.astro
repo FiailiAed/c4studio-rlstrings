@@ -1,15 +1,22 @@
 ---
 import ShopLayout from '../../layouts/ShopLayout.astro';
+import ShopUploader from '../../components/ShopUploader.tsx';
+import IconPocketHigh from '../../components/icons/placement/IconPocketHigh.astro';
+import IconPocketMid from '../../components/icons/placement/IconPocketMid.astro';
+import IconPocketLow from '../../components/icons/placement/IconPocketLow.astro';
+import IconSetupTwoShooters from '../../components/icons/shooters/IconSetupTwoShooters.astro';
+import IconSetupOneNylonOneShooter from '../../components/icons/shooters/IconSetupOneNylonOneShooter.astro';
+import IconSetupOneNylonTwoShooters from '../../components/icons/shooters/IconSetupOneNylonTwoShooters.astro';
+import IconSetupThreeShooters from '../../components/icons/shooters/IconSetupThreeShooters.astro';
+import IconSetupCustom from '../../components/icons/shooters/IconSetupCustom.astro';
 import { ConvexHttpClient } from 'convex/browser';
 import { api } from '../../../convex/_generated/api';
 
 const convexUrl = import.meta.env.PUBLIC_CONVEX_URL;
 const client = new ConvexHttpClient(convexUrl);
 
-// Fetch builder products (showInBuilder=true, stock>0)
 const allProducts = await client.query(api.inventory.getBuilderProducts, {});
 
-// Transform to a clean shape
 const products = allProducts.map((item) => ({
   id: item._id,
   name: item.name,
@@ -18,42 +25,58 @@ const products = allProducts.map((item) => ({
   priceId: item.priceId ?? null,
   priceAmount: item.unitAmount ?? null,
   currency: item.currency ?? 'usd',
-  category: item.category ?? 'service',
+  category: item.category,
   playerType: (item as any).playerType ?? null,
 }));
 
-// Group by category
 const serviceProducts = products.filter((p) => p.category === 'service');
-const headProducts = products.filter((p) => p.category === 'head');
-const meshProducts = products.filter((p) => p.category === 'mesh');
-const stringsProducts = products.filter((p) => p.category === 'strings');
-const upsellProducts = products.filter((p) => p.category === 'upsell');
+const dyeProducts     = products.filter((p) => p.category === 'dye').sort((a, b) => (a.priceAmount ?? 0) - (b.priceAmount ?? 0));
+const headProducts    = products.filter((p) => p.category === 'head');
+const meshProducts    = products.filter((p) => p.category === 'mesh');
+const rushProducts    = products.filter((p) => p.category === 'rush');
 
-const POCKET_OPTIONS = ['High', 'Mid', 'Low', 'Re-Create My Pocket'];
+const hasDyeProducts = dyeProducts.length >= 1;
+const hasRushProduct = rushProducts.length > 0;
 
 function formatPrice(cents: number | null, currency: string = 'usd'): string {
   if (cents === null) return 'Contact for price';
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: currency.toUpperCase(),
-  }).format(cents / 100);
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: currency.toUpperCase() }).format(cents / 100);
 }
 
-// Default hero image (first service product with an image, or fallback)
-const defaultHero = products.find((p) => p.images.length > 0)?.images[0] ?? '';
+const defaultHero = serviceProducts.find((p) => p.images.length > 0)?.images[0] ?? '';
+
+const COLORS = [
+  { name: 'White',        hex: '#FFFFFF' },
+  { name: 'Black',        hex: '#000000' },
+  { name: 'Red',          hex: '#DC2626' },
+  { name: 'Royal Blue',   hex: '#2563EB' },
+  { name: 'Navy',         hex: '#1E3A5F' },
+  { name: 'Forest Green', hex: '#166534' },
+  { name: 'Neon Green',   hex: '#84CC16' },
+  { name: 'Yellow',       hex: '#EAB308' },
+  { name: 'Orange',       hex: '#EA580C' },
+  { name: 'Purple',       hex: '#7C3AED' },
+  { name: 'Carolina Blue','hex': '#38BDF8' },
+  { name: 'Gray',         hex: '#6B7280' },
+];
+
+const serviceProductsJson = JSON.stringify(serviceProducts);
+const dyeProductsJson     = JSON.stringify(dyeProducts);
+const headProductsJson    = JSON.stringify(headProducts);
+const meshProductsJson    = JSON.stringify(meshProducts);
+const rushProductsJson    = JSON.stringify(rushProducts);
 ---
 
 <ShopLayout
   title="RL Strings | Build Your Pocket"
-  description="Build your custom lacrosse pocket. Choose your service, head, mesh, strings, and pocket style."
+  description="Build your custom lacrosse pocket. Choose your service, head, mesh, and pocket style."
 >
-  <div class="max-w-7xl mx-auto px-4 py-8">
+  <div class="max-w-7xl mx-auto px-4 pt-8 pb-24">
     <div class="lg:grid lg:grid-cols-12 lg:gap-12">
 
       <!-- ===== LEFT COLUMN (Sticky) ===== -->
       <div class="lg:col-span-5">
         <div class="lg:sticky lg:top-20">
-          <!-- Hero Image -->
           <div class="bg-white rounded-xl border border-gray-200 overflow-hidden mb-6">
             {defaultHero ? (
               <img
@@ -65,7 +88,7 @@ const defaultHero = products.find((p) => p.images.length > 0)?.images[0] ?? '';
                 height="600"
               />
             ) : (
-              <div id="hero-img-placeholder" class="w-full aspect-square bg-gray-100 flex items-center justify-center">
+              <div class="w-full aspect-square bg-gray-100 flex items-center justify-center">
                 <svg class="w-16 h-16 text-gray-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                   <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
                   <circle cx="8.5" cy="8.5" r="1.5" />
@@ -74,32 +97,13 @@ const defaultHero = products.find((p) => p.images.length > 0)?.images[0] ?? '';
               </div>
             )}
           </div>
-
-          <!-- Heading -->
-          <h1 class="text-3xl font-black mb-2">Build Your Pocket</h1>
-          <p class="text-gray-500 text-sm mb-6">Custom built. Professionally strung. Pick your parts below.</p>
-
-          <!-- Desktop Checkout Summary -->
-          <div id="desktop-summary" class="hidden lg:block bg-white rounded-xl border border-gray-200 p-5">
-            <div class="flex items-center justify-between mb-4">
-              <span class="text-sm text-gray-500"><span id="d-count">0</span> items selected</span>
-              <span id="d-total" class="text-xl font-black">$0.00</span>
-            </div>
-            <button
-              id="d-checkout-btn"
-              disabled
-              class="w-full bg-black text-white py-3 font-bold rounded-lg hover:bg-gray-800 transition disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              Checkout
-            </button>
-          </div>
         </div>
       </div>
 
       <!-- ===== RIGHT COLUMN ===== -->
       <div class="lg:col-span-7 space-y-6 mt-8 lg:mt-0">
 
-        <!-- SECTION 1: Service Type -->
+        <!-- STEP 0: Service Type (always visible — gates the rest) -->
         <section class="bg-white rounded-xl border border-gray-200 overflow-hidden" data-section="service">
           <button type="button" class="section-toggle w-full flex items-center justify-between p-5 text-left">
             <div class="flex items-center gap-3">
@@ -118,15 +122,12 @@ const defaultHero = products.find((p) => p.images.length > 0)?.images[0] ?? '';
                 {serviceProducts.map((p) => (
                   <button
                     type="button"
-                    class="product-btn border-2 border-gray-200 rounded-lg p-4 text-center hover:border-black transition"
-                    data-section="service"
-                    data-product-id={p.id}
+                    class="service-card border-2 border-gray-200 rounded-lg p-4 text-center hover:border-black transition"
                     data-price-id={p.priceId}
                     data-price-amount={p.priceAmount}
-                    data-currency={p.currency}
-                    data-player-type={p.playerType ?? ''}
                     data-image={p.images[0] ?? ''}
                     data-name={p.name}
+                    data-player-type={p.playerType ?? ''}
                   >
                     <div class="font-semibold text-sm">{p.name}</div>
                     <div class="text-xs text-gray-500 mt-1">{formatPrice(p.priceAmount, p.currency)}</div>
@@ -139,282 +140,543 @@ const defaultHero = products.find((p) => p.images.length > 0)?.images[0] ?? '';
           </div>
         </section>
 
-        <!-- SECTION 2: Head -->
-        <section class="bg-white rounded-xl border border-gray-200 overflow-hidden" data-section="head">
-          <button type="button" class="section-toggle w-full flex items-center justify-between p-5 text-left">
-            <div class="flex items-center gap-3">
-              <span class="w-7 h-7 rounded-full bg-black text-white text-sm font-bold flex items-center justify-center">2</span>
-              <h2 class="font-bold text-lg">Head</h2>
-              <span class="text-xs text-red-600 font-semibold uppercase">Required</span>
+        <!-- REST OF FORM (gated behind service selection) -->
+        <div id="form-sections" class="hidden space-y-6">
+
+          <!-- SECTION 1: Head Dye -->
+          <section class="bg-white rounded-xl border border-gray-200 overflow-hidden" data-section="dye">
+            <button type="button" class="section-toggle w-full flex items-center justify-between p-5 text-left">
+              <div class="flex items-center gap-3">
+                <span class="w-7 h-7 rounded-full bg-black text-white text-sm font-bold flex items-center justify-center">2</span>
+                <h2 class="font-bold text-lg">Head Dye</h2>
+                <span class="text-xs text-red-600 font-semibold uppercase">Required</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <svg class="section-check w-5 h-5 text-green-500 hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12" /></svg>
+                <svg class="section-chevron w-5 h-5 text-gray-400 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9" /></svg>
+              </div>
+            </button>
+            <div class="section-body px-5 pb-5">
+              <div class="flex gap-3 mb-5">
+                <button type="button" id="dye-no"
+                  class="flex-1 border-2 border-black bg-gray-50 rounded-lg py-3 font-semibold text-sm transition hover:bg-gray-100"
+                >
+                  No Thanks
+                </button>
+                <button type="button" id="dye-yes"
+                  class="flex-1 border-2 border-gray-200 rounded-lg py-3 font-semibold text-sm transition hover:border-black"
+                >
+                  Yes, Dye It
+                </button>
+              </div>
+
+              <div id="dye-details" class="hidden space-y-5">
+                {hasDyeProducts ? (
+                  <div>
+                    <p class="text-sm font-semibold text-gray-700 mb-3">Select Dye Tier</p>
+                    <div class="grid grid-cols-2 gap-3">
+                      {dyeProducts.map((p, i) => (
+                        <button
+                          type="button"
+                          class="dye-tier-btn border-2 border-gray-200 rounded-lg p-4 text-left hover:border-black transition"
+                          data-dye-tier-index={i}
+                          data-price-id={p.priceId}
+                          data-price-amount={p.priceAmount}
+                          data-name={p.name}
+                        >
+                          <div class="font-semibold text-sm">{p.name}</div>
+                          <div class="text-xs text-gray-500 mt-1">{formatPrice(p.priceAmount, p.currency)}</div>
+                          <div class="text-xs text-gray-400 mt-1">
+                            {i === 0 ? 'Solid, Top Half, or Bottom Half' : 'Custom design + reference'}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <p class="text-sm text-gray-500 italic">Contact us for dye pricing options.</p>
+                )}
+
+                <!-- Tier 1 sub-panel -->
+                <div id="dye-tier1-panel" class="hidden space-y-4">
+                  <div>
+                    <p class="text-sm font-semibold text-gray-700 mb-3">Dye Style</p>
+                    <div class="flex gap-3">
+                      {['Bottom', 'Top', 'Solid'].map((style) => (
+                        <button
+                          type="button"
+                          class="dye-style-btn flex-1 border-2 border-gray-200 rounded-lg py-2.5 text-sm font-semibold hover:border-black transition"
+                          data-dye-style={style}
+                        >
+                          {style}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <p class="text-sm font-semibold text-gray-700 mb-3">Dye Color</p>
+                    <div class="flex flex-wrap gap-2">
+                      {COLORS.map((c) => (
+                        <button
+                          type="button"
+                          class="color-btn w-8 h-8 rounded-full border-2 border-gray-200 hover:scale-110 transition ring-offset-1"
+                          data-color-section="dye"
+                          data-color-name={c.name}
+                          style={`background-color: ${c.hex};`}
+                          title={c.name}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Tier 2 sub-panel -->
+                <div id="dye-tier2-panel" class="hidden space-y-4">
+                  <div>
+                    <label for="dye-description" class="block text-sm font-semibold text-gray-700 mb-2">
+                      Describe Your Dye Vision
+                    </label>
+                    <textarea
+                      id="dye-description"
+                      rows="3"
+                      placeholder="e.g. Blue to black fade from top to bottom, white accents..."
+                      class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black resize-none"
+                    />
+                  </div>
+                  <ShopUploader
+                    client:load
+                    route="dyeReference"
+                    label="Reference Photo / Logos"
+                    hint="Upload an image showing the style or logos you want"
+                  />
+                  <div>
+                    <p class="text-sm font-semibold text-gray-700 mb-3">Dye Color(s)</p>
+                    <div class="flex flex-wrap gap-2">
+                      {COLORS.map((c) => (
+                        <button
+                          type="button"
+                          class="color-btn w-8 h-8 rounded-full border-2 border-gray-200 hover:scale-110 transition ring-offset-1"
+                          data-color-section="dye"
+                          data-color-name={c.name}
+                          style={`background-color: ${c.hex};`}
+                          title={c.name}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
-            <div class="flex items-center gap-2">
-              <svg class="section-check w-5 h-5 text-green-500 hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12" /></svg>
-              <svg class="section-chevron w-5 h-5 text-gray-400 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9" /></svg>
+          </section>
+
+          <!-- SECTION 2: Head -->
+          <section class="bg-white rounded-xl border border-gray-200 " data-section="head">
+            <button type="button" class="section-toggle w-full flex items-center justify-between p-5 text-left">
+              <div class="flex items-center gap-3">
+                <span class="w-7 h-7 rounded-full bg-black text-white text-sm font-bold flex items-center justify-center">3</span>
+                <h2 class="font-bold text-lg">Head</h2>
+                <span class="text-xs text-red-600 font-semibold uppercase">Required</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <svg class="section-check w-5 h-5 text-green-500 hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12" /></svg>
+                <svg class="section-chevron w-5 h-5 text-gray-400 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9" /></svg>
+              </div>
+            </button>
+            <div class="section-body px-5 pb-5">
+              <div class="relative mb-4" id="head-dropdown-container">
+                <button
+                  id="head-dropdown-button"
+                  type="button"
+                  class="inline-flex w-full justify-between items-center gap-x-1.5 rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 transition-colors"
+                  aria-expanded="false"
+                  aria-haspopup="true"
+                >
+                  <span id="head-dropdown-label" class="text-gray-500 font-normal">— Choose your head option —</span>
+                  <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" class="size-5 text-gray-400 flex-shrink-0">
+                    <path fill-rule="evenodd" d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd" />
+                  </svg>
+                </button>
+                <div
+                  id="head-dropdown-menu"
+                  class="absolute left-0 z-20 mt-2 w-full origin-top-left rounded-md bg-white shadow-lg ring-1 ring-black/5 focus:outline-none transition duration-100 ease-out transform opacity-0 scale-95 pointer-events-none max-h-72 overflow-y-auto"
+                  role="menu"
+                  tabindex="-1"
+                >
+                  <div class="py-1" role="none">
+                    <button class="head-dropdown-item w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors text-left" data-value="sending-own" data-name="Sending My Own Head" role="menuitem">
+                      Sending My Own Head
+                    </button>
+                    <button class="head-dropdown-item w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors text-left" data-value="drop-off" data-name="Dropping Off My Head" role="menuitem">
+                      Dropping Off My Head
+                    </button>
+                    {headProducts.map((p) => (
+                      <button
+                        class="head-dropdown-item flex items-center gap-3 w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors text-left"
+                        data-value={p.priceId ?? ''}
+                        data-name={p.name}
+                        data-price-amount={p.priceAmount ?? 0}
+                        data-player-type={p.playerType ?? ''}
+                        role="menuitem"
+                      >
+                        {p.images[0] ? (
+                          <img src={p.images[0]} alt={p.name} class="w-9 h-9 rounded object-cover flex-shrink-0" />
+                        ) : (
+                          <div class="w-9 h-9 rounded bg-gray-100 flex-shrink-0" />
+                        )}
+                        <div>
+                          <div class="font-semibold">{p.name}</div>
+                          <div class="text-xs text-gray-500">{formatPrice(p.priceAmount, p.currency)}</div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div id="drop-off-location-wrap" class="hidden">
+                <label for="drop-off-location" class="block text-xs font-semibold text-gray-500 uppercase mb-2">Drop-Off Location</label>
+                <div class="relative">
+                  <select
+                    id="drop-off-location"
+                    class="w-full appearance-none rounded-md bg-white px-3 py-2 pr-10 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-black cursor-pointer transition-colors"
+                  >
+                    <option value="Stellar Athletics">Stellar Athletics — 876 N Lenola Rd, Moorestown, NJ</option>
+                  </select>
+                  <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3">
+                    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" class="size-5 text-gray-400">
+                      <path fill-rule="evenodd" d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd" />
+                    </svg>
+                  </div>
+                </div>
+              </div>
             </div>
-          </button>
-          <div class="section-body px-5 pb-5">
-            <!-- BYO Head Toggle -->
-            <label class="flex items-center gap-3 mb-4 cursor-pointer select-none">
-              <input type="checkbox" id="byo-head" class="w-5 h-5 accent-black rounded" />
-              <span class="text-sm font-medium">I'm bringing my own head</span>
-            </label>
-            <div id="head-products">
-              {headProducts.length > 0 ? (
-                <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {headProducts.map((p) => (
+          </section>
+
+          <!-- SECTION 3: Mesh -->
+          <section class="bg-white rounded-xl border border-gray-200 " data-section="mesh">
+            <button type="button" class="section-toggle w-full flex items-center justify-between p-5 text-left">
+              <div class="flex items-center gap-3">
+                <span class="w-7 h-7 rounded-full bg-black text-white text-sm font-bold flex items-center justify-center">4</span>
+                <h2 class="font-bold text-lg">Mesh</h2>
+                <span class="text-xs text-red-600 font-semibold uppercase">Required</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <svg class="section-check w-5 h-5 text-green-500 hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12" /></svg>
+                <svg class="section-chevron w-5 h-5 text-gray-400 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9" /></svg>
+              </div>
+            </button>
+            <div class="section-body px-5 pb-5">
+              <div class="relative" id="mesh-dropdown-container">
+                <button
+                  id="mesh-dropdown-button"
+                  type="button"
+                  class="inline-flex w-full justify-between items-center gap-x-1.5 rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 transition-colors"
+                  aria-expanded="false"
+                  aria-haspopup="true"
+                >
+                  <span id="mesh-dropdown-label" class="text-gray-500 font-normal">— Choose your mesh option —</span>
+                  <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" class="size-5 text-gray-400 flex-shrink-0">
+                    <path fill-rule="evenodd" d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd" />
+                  </svg>
+                </button>
+                <div
+                  id="mesh-dropdown-menu"
+                  class="absolute left-0 z-20 mt-2 w-full origin-top-left rounded-md bg-white shadow-lg ring-1 ring-black/5 focus:outline-none transition duration-100 ease-out transform opacity-0 scale-95 pointer-events-none max-h-72 overflow-y-auto"
+                  role="menu"
+                  tabindex="-1"
+                >
+                  <div class="py-1" role="none">
+                    <button class="mesh-dropdown-item w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors text-left" data-value="sending-both" data-name="Sending My Mesh &amp; Strings" role="menuitem">
+                      Sending My Mesh &amp; Strings
+                    </button>
+                    <button class="mesh-dropdown-item w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors text-left" data-value="sending-mesh-only" data-name="Sending Mesh Only — Need Strings" role="menuitem">
+                      Sending Mesh Only — Need Strings
+                    </button>
+                    {meshProducts.map((p) => (
+                      <button
+                        class="mesh-dropdown-item flex items-center gap-3 w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors text-left"
+                        data-value={p.priceId ?? ''}
+                        data-name={p.name}
+                        data-price-amount={p.priceAmount ?? 0}
+                        data-player-type={p.playerType ?? ''}
+                        role="menuitem"
+                      >
+                        {p.images[0] ? (
+                          <img src={p.images[0]} alt={p.name} class="w-9 h-9 rounded object-cover flex-shrink-0" />
+                        ) : (
+                          <div class="w-9 h-9 rounded bg-gray-100 flex-shrink-0" />
+                        )}
+                        <div>
+                          <div class="font-semibold">{p.name}</div>
+                          <div class="text-xs text-gray-500">{formatPrice(p.priceAmount, p.currency)}</div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- SECTION 4: Sidewall Color -->
+          <section class="bg-white rounded-xl border border-gray-200 overflow-hidden" data-section="sidewall">
+            <button type="button" class="section-toggle w-full flex items-center justify-between p-5 text-left">
+              <div class="flex items-center gap-3">
+                <span class="w-7 h-7 rounded-full bg-black text-white text-sm font-bold flex items-center justify-center">5</span>
+                <h2 class="font-bold text-lg">Sidewall Color</h2>
+                <span class="text-xs text-red-600 font-semibold uppercase">Required</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <svg class="section-check w-5 h-5 text-green-500 hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12" /></svg>
+                <svg class="section-chevron w-5 h-5 text-gray-400 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9" /></svg>
+              </div>
+            </button>
+            <div class="section-body px-5 pb-5">
+              <p class="text-xs text-gray-500 mb-4">Choose the color for your sidewall strings.</p>
+              <div class="flex flex-wrap gap-3">
+                {COLORS.map((c) => (
+                  <button
+                    type="button"
+                    class="color-btn group relative w-10 h-10 rounded-full border-2 border-gray-200 hover:scale-110 transition ring-offset-1"
+                    data-color-section="sidewall"
+                    data-color-name={c.name}
+                    style={`background-color: ${c.hex};`}
+                    title={c.name}
+                  />
+                ))}
+              </div>
+              <p id="sidewall-color-label" class="text-xs text-gray-500 mt-3 hidden">Selected: <span id="sidewall-color-name"></span></p>
+            </div>
+          </section>
+
+          <!-- SECTION 5: Shooters Color -->
+          <section class="bg-white rounded-xl border border-gray-200 overflow-hidden" data-section="shooters">
+            <button type="button" class="section-toggle w-full flex items-center justify-between p-5 text-left">
+              <div class="flex items-center gap-3">
+                <span class="w-7 h-7 rounded-full bg-black text-white text-sm font-bold flex items-center justify-center">6</span>
+                <h2 class="font-bold text-lg">Shooters Color</h2>
+                <span class="text-xs text-red-600 font-semibold uppercase">Required</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <svg class="section-check w-5 h-5 text-green-500 hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12" /></svg>
+                <svg class="section-chevron w-5 h-5 text-gray-400 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9" /></svg>
+              </div>
+            </button>
+            <div class="section-body px-5 pb-5">
+              <p class="text-xs text-gray-500 mb-4">Choose the color for your shooter strings.</p>
+              <div class="flex flex-wrap gap-3">
+                {COLORS.map((c) => (
+                  <button
+                    type="button"
+                    class="color-btn group relative w-10 h-10 rounded-full border-2 border-gray-200 hover:scale-110 transition ring-offset-1"
+                    data-color-section="shooters"
+                    data-color-name={c.name}
+                    style={`background-color: ${c.hex};`}
+                    title={c.name}
+                  />
+                ))}
+              </div>
+              <p id="shooters-color-label" class="text-xs text-gray-500 mt-3 hidden">Selected: <span id="shooters-color-name"></span></p>
+            </div>
+          </section>
+
+          <!-- SECTION 6: Pocket Setup -->
+          <section class="bg-white rounded-xl border border-gray-200 overflow-hidden" data-section="pocket">
+            <button type="button" class="section-toggle w-full flex items-center justify-between p-5 text-left">
+              <div class="flex items-center gap-3">
+                <span class="w-7 h-7 rounded-full bg-black text-white text-sm font-bold flex items-center justify-center">7</span>
+                <h2 class="font-bold text-lg">Pocket Setup</h2>
+                <span class="text-xs text-red-600 font-semibold uppercase">Required</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <svg class="section-check w-5 h-5 text-green-500 hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12" /></svg>
+                <svg class="section-chevron w-5 h-5 text-gray-400 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9" /></svg>
+              </div>
+            </button>
+            <div class="section-body px-5 pb-5">
+              <!-- Mode Tab Toggle -->
+              <div class="flex gap-2 mb-6 p-1 bg-gray-100 rounded-lg">
+                <button type="button" id="pocket-tab-design"
+                  class="flex-1 py-2 rounded-md text-sm font-semibold bg-white shadow-sm transition"
+                >
+                  Design My Pocket
+                </button>
+                <button type="button" id="pocket-tab-replicate"
+                  class="flex-1 py-2 rounded-md text-sm font-semibold text-gray-500 transition hover:text-gray-700"
+                >
+                  Replicate My Pocket
+                </button>
+              </div>
+
+              <!-- Design Panel -->
+              <div id="pocket-design-panel" class="space-y-6">
+                <div>
+                  <p class="text-sm font-semibold text-gray-700 mb-3">Pocket Placement</p>
+                  <div class="flex gap-3">
+                    {([
+                      { label: 'Low',  Icon: IconPocketLow },
+                      { label: 'Mid',  Icon: IconPocketMid },
+                      { label: 'High', Icon: IconPocketHigh },
+                    ] as const).map(({ label, Icon }) => (
+                      <button
+                        type="button"
+                        class="placement-btn flex-1 border-2 border-gray-200 rounded-lg py-2.5 px-2 text-sm font-semibold hover:border-black transition flex flex-col items-center gap-1"
+                        data-placement={label}
+                      >
+                        <Icon class="w-14 h-14" />
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <p class="text-sm font-semibold text-gray-700 mb-2">Shooter Setup</p>
+                  <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {([
+                      { label: 'Two Shooters',          value: 'Two Shooters',          Icon: IconSetupTwoShooters as any },
+                      { label: '1 Nylon, 1 Shooter',    value: 'One Nylon, One Shooter', Icon: IconSetupOneNylonOneShooter as any },
+                      { label: '1 Nylon, 2 Shooters',   value: 'One Nylon, Two Shooters', Icon: IconSetupOneNylonTwoShooters as any },
+                      { label: 'Three Shooters',        value: 'Three Shooters',        Icon: IconSetupThreeShooters as any },
+                      { label: 'One Shooter',           value: 'One Shooter',           Icon: null as any },
+                      { label: 'Custom',                value: 'Custom',                Icon: IconSetupCustom as any },
+                    ]).map(({ label, value, Icon }) => (
+                      <button
+                        type="button"
+                        class="shooter-btn border-2 border-gray-200 rounded-lg py-2 px-2 text-sm font-semibold hover:border-black transition flex flex-col items-center gap-1 text-center"
+                        data-shooter-value={value}
+                      >
+                        {Icon && <Icon class="w-14 h-14" />}
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  <div id="shooter-custom-wrap" class="hidden mt-3">
+                    <textarea
+                      id="shooter-custom-text"
+                      rows="2"
+                      placeholder="Describe your custom shooter setup..."
+                      class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black resize-none"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <div class="flex items-center justify-between mb-3">
+                    <p class="text-sm font-semibold text-gray-700">Whip Level</p>
+                    <span id="whip-label" class="text-sm font-bold">Med</span>
+                  </div>
+                  <input
+                    type="range"
+                    id="whip-slider"
+                    min="1"
+                    max="4"
+                    step="1"
+                    value="2"
+                    class="w-full accent-black"
+                  />
+                  <div class="flex justify-between text-xs text-gray-400 mt-1">
+                    <span>Low</span><span>Med</span><span>High</span><span>Max</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Replicate Panel -->
+              <div id="pocket-replicate-panel" class="hidden">
+                <ShopUploader
+                  client:load
+                  route="pocketPhoto"
+                  label="Photo of Your Pocket"
+                  hint="Upload a clear photo of the pocket you want replicated"
+                />
+              </div>
+            </div>
+          </section>
+
+          <!-- SECTION 10: Custom Notes + Rush Order -->
+          <section class="bg-white rounded-xl border border-gray-200 overflow-hidden" data-section="notes">
+            <button type="button" class="section-toggle w-full flex items-center justify-between p-5 text-left">
+              <div class="flex items-center gap-3">
+                <span class="w-7 h-7 rounded-full bg-gray-300 text-white text-sm font-bold flex items-center justify-center">8</span>
+                <h2 class="font-bold text-lg">Notes & Extras</h2>
+                <span class="text-xs text-gray-400 font-semibold uppercase">Optional</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <svg class="section-check w-5 h-5 text-green-500 hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12" /></svg>
+                <svg class="section-chevron w-5 h-5 text-gray-400 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9" /></svg>
+              </div>
+            </button>
+            <div class="section-body px-5 pb-5 space-y-5">
+              <div>
+                <label for="custom-notes" class="block text-sm font-semibold text-gray-700 mb-2">Custom Notes</label>
+                <textarea
+                  id="custom-notes"
+                  rows="3"
+                  placeholder="Any special requests, preferences, or information for Todd..."
+                  class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black resize-none"
+                />
+              </div>
+
+              {hasRushProduct && (
+                <div class="flex items-center justify-between p-4 border-2 border-gray-200 rounded-lg hover:border-black transition cursor-pointer" id="rush-toggle-wrap">
+                  <div>
+                    <p class="font-semibold text-sm">Rush Order</p>
+                    <p class="text-xs text-gray-500 mt-0.5">Move to the front of the queue</p>
+                  </div>
+                  <div class="flex items-center gap-3">
+                    <span class="text-sm font-bold text-gray-700">+{formatPrice(rushProducts[0]?.priceAmount, rushProducts[0]?.currency)}</span>
                     <button
                       type="button"
-                      class="product-btn border-2 border-gray-200 rounded-lg overflow-hidden text-left hover:border-black transition"
-                      data-section="head"
-                      data-product-id={p.id}
-                      data-price-id={p.priceId}
-                      data-price-amount={p.priceAmount}
-                      data-currency={p.currency}
-                      data-player-type={p.playerType ?? ''}
-                      data-image={p.images[0] ?? ''}
-                      data-name={p.name}
+                      id="rush-toggle"
+                      class="border-2 border-gray-200 rounded-lg px-4 py-1.5 text-sm font-semibold hover:border-black transition"
+                      data-rush-price-id={rushProducts[0]?.priceId}
+                      data-rush-price-amount={rushProducts[0]?.priceAmount}
                     >
-                      {p.images[0] ? (
-                        <img src={p.images[0]} alt={p.name} class="w-full aspect-square object-cover" loading="lazy" width="200" height="200" />
-                      ) : (
-                        <div class="w-full aspect-square bg-gray-100 flex items-center justify-center">
-                          <svg class="w-8 h-8 text-gray-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg>
-                        </div>
-                      )}
-                      <div class="p-2">
-                        <div class="font-semibold text-xs line-clamp-2">{p.name}</div>
-                        <div class="text-xs text-gray-500 mt-0.5">{formatPrice(p.priceAmount, p.currency)}</div>
-                      </div>
+                      Add
                     </button>
-                  ))}
+                  </div>
                 </div>
-              ) : (
-                <p class="text-gray-500 text-sm">No heads available at the moment.</p>
               )}
             </div>
-          </div>
-        </section>
+          </section>
 
-        <!-- SECTION 3: Mesh -->
-        <section class="bg-white rounded-xl border border-gray-200 overflow-hidden" data-section="mesh">
-          <button type="button" class="section-toggle w-full flex items-center justify-between p-5 text-left">
-            <div class="flex items-center gap-3">
-              <span class="w-7 h-7 rounded-full bg-black text-white text-sm font-bold flex items-center justify-center">3</span>
-              <h2 class="font-bold text-lg">Mesh</h2>
-              <span class="text-xs text-red-600 font-semibold uppercase">Required</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <svg class="section-check w-5 h-5 text-green-500 hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12" /></svg>
-              <svg class="section-chevron w-5 h-5 text-gray-400 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9" /></svg>
-            </div>
-          </button>
-          <div class="section-body px-5 pb-5">
-            {meshProducts.length > 0 ? (
-              <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {meshProducts.map((p) => (
-                  <button
-                    type="button"
-                    class="product-btn border-2 border-gray-200 rounded-lg overflow-hidden text-left hover:border-black transition"
-                    data-section="mesh"
-                    data-product-id={p.id}
-                    data-price-id={p.priceId}
-                    data-price-amount={p.priceAmount}
-                    data-currency={p.currency}
-                    data-player-type={p.playerType ?? ''}
-                    data-image={p.images[0] ?? ''}
-                    data-name={p.name}
-                  >
-                    {p.images[0] ? (
-                      <img src={p.images[0]} alt={p.name} class="w-full aspect-square object-cover" loading="lazy" width="200" height="200" />
-                    ) : (
-                      <div class="w-full aspect-square bg-gray-100 flex items-center justify-center">
-                        <svg class="w-8 h-8 text-gray-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg>
-                      </div>
-                    )}
-                    <div class="p-2">
-                      <div class="font-semibold text-xs line-clamp-2">{p.name}</div>
-                      <div class="text-xs text-gray-500 mt-0.5">{formatPrice(p.priceAmount, p.currency)}</div>
-                    </div>
-                  </button>
-                ))}
+          <!-- FAQ -->
+          <section class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div class="p-5">
+              <h2 class="font-bold text-lg mb-4">Frequently Asked Questions</h2>
+              <div class="space-y-2">
+                <details class="group border border-gray-200 rounded-lg">
+                  <summary class="cursor-pointer p-4 font-medium text-sm flex items-center justify-between">
+                    How long does stringing take?
+                    <svg class="w-4 h-4 text-gray-400 group-open:rotate-180 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9" /></svg>
+                  </summary>
+                  <div class="px-4 pb-4 text-sm text-gray-600">
+                    Most orders are completed within 2-3 business days. Rush orders are available for an additional fee.
+                  </div>
+                </details>
+                <details class="group border border-gray-200 rounded-lg">
+                  <summary class="cursor-pointer p-4 font-medium text-sm flex items-center justify-between">
+                    Where do I drop off and pick up my order?
+                    <svg class="w-4 h-4 text-gray-400 group-open:rotate-180 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9" /></svg>
+                  </summary>
+                  <div class="px-4 pb-4 text-sm text-gray-600">
+                    All drop-offs and pickups happen at Stellar Athletics — 876 North Lenola Road, Moorestown, NJ 08057. You'll receive a pickup code when your order is ready.
+                  </div>
+                </details>
+                <details class="group border border-gray-200 rounded-lg">
+                  <summary class="cursor-pointer p-4 font-medium text-sm flex items-center justify-between">
+                    What's your guarantee?
+                    <svg class="w-4 h-4 text-gray-400 group-open:rotate-180 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9" /></svg>
+                  </summary>
+                  <div class="px-4 pb-4 text-sm text-gray-600">
+                    If your stick isn't performing exactly how you want it, we'll restring it for free. No questions asked.
+                  </div>
+                </details>
               </div>
-            ) : (
-              <p class="text-gray-500 text-sm">No mesh available at the moment.</p>
-            )}
-          </div>
-        </section>
+            </div>
+          </section>
 
-        <!-- SECTION 4: Strings -->
-        <section class="bg-white rounded-xl border border-gray-200 overflow-hidden" data-section="strings">
-          <button type="button" class="section-toggle w-full flex items-center justify-between p-5 text-left">
-            <div class="flex items-center gap-3">
-              <span class="w-7 h-7 rounded-full bg-black text-white text-sm font-bold flex items-center justify-center">4</span>
-              <h2 class="font-bold text-lg">Strings</h2>
-              <span class="text-xs text-red-600 font-semibold uppercase">Required</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <svg class="section-check w-5 h-5 text-green-500 hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12" /></svg>
-              <svg class="section-chevron w-5 h-5 text-gray-400 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9" /></svg>
-            </div>
-          </button>
-          <div class="section-body px-5 pb-5">
-            {stringsProducts.length > 0 ? (
-              <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {stringsProducts.map((p) => (
-                  <button
-                    type="button"
-                    class="product-btn border-2 border-gray-200 rounded-lg overflow-hidden text-left hover:border-black transition"
-                    data-section="strings"
-                    data-product-id={p.id}
-                    data-price-id={p.priceId}
-                    data-price-amount={p.priceAmount}
-                    data-currency={p.currency}
-                    data-player-type={p.playerType ?? ''}
-                    data-image={p.images[0] ?? ''}
-                    data-name={p.name}
-                  >
-                    {p.images[0] ? (
-                      <img src={p.images[0]} alt={p.name} class="w-full aspect-square object-cover" loading="lazy" width="200" height="200" />
-                    ) : (
-                      <div class="w-full aspect-square bg-gray-100 flex items-center justify-center">
-                        <svg class="w-8 h-8 text-gray-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg>
-                      </div>
-                    )}
-                    <div class="p-2">
-                      <div class="font-semibold text-xs line-clamp-2">{p.name}</div>
-                      <div class="text-xs text-gray-500 mt-0.5">{formatPrice(p.priceAmount, p.currency)}</div>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <p class="text-gray-500 text-sm">No strings available at the moment.</p>
-            )}
-          </div>
-        </section>
-
-        <!-- SECTION 5: Pocket Preference -->
-        <section class="bg-white rounded-xl border border-gray-200 overflow-hidden" data-section="pocket">
-          <button type="button" class="section-toggle w-full flex items-center justify-between p-5 text-left">
-            <div class="flex items-center gap-3">
-              <span class="w-7 h-7 rounded-full bg-black text-white text-sm font-bold flex items-center justify-center">5</span>
-              <h2 class="font-bold text-lg">Pocket Preference</h2>
-              <span class="text-xs text-red-600 font-semibold uppercase">Required</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <svg class="section-check w-5 h-5 text-green-500 hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12" /></svg>
-              <svg class="section-chevron w-5 h-5 text-gray-400 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9" /></svg>
-            </div>
-          </button>
-          <div class="section-body px-5 pb-5">
-            <div class="grid grid-cols-2 gap-3">
-              {POCKET_OPTIONS.map((opt) => (
-                <button
-                  type="button"
-                  class="pocket-btn border-2 border-gray-200 rounded-lg p-4 text-center font-semibold text-sm hover:border-black transition"
-                  data-pocket={opt}
-                >
-                  {opt}
-                </button>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <!-- SECTION 6: Extras (optional, multi-select) -->
-        <section class="bg-white rounded-xl border border-gray-200 overflow-hidden" data-section="upsell">
-          <button type="button" class="section-toggle w-full flex items-center justify-between p-5 text-left">
-            <div class="flex items-center gap-3">
-              <span class="w-7 h-7 rounded-full bg-gray-300 text-white text-sm font-bold flex items-center justify-center">6</span>
-              <h2 class="font-bold text-lg">Extras</h2>
-              <span class="text-xs text-gray-400 font-semibold uppercase">Optional</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <svg class="section-check w-5 h-5 text-green-500 hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12" /></svg>
-              <svg class="section-chevron w-5 h-5 text-gray-400 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9" /></svg>
-            </div>
-          </button>
-          <div class="section-body px-5 pb-5">
-            {upsellProducts.length > 0 ? (
-              <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {upsellProducts.map((p) => (
-                  <button
-                    type="button"
-                    class="product-btn border-2 border-gray-200 rounded-lg overflow-hidden text-left hover:border-black transition"
-                    data-section="upsell"
-                    data-product-id={p.id}
-                    data-price-id={p.priceId}
-                    data-price-amount={p.priceAmount}
-                    data-currency={p.currency}
-                    data-player-type={p.playerType ?? ''}
-                    data-image={p.images[0] ?? ''}
-                    data-name={p.name}
-                  >
-                    {p.images[0] ? (
-                      <img src={p.images[0]} alt={p.name} class="w-full aspect-square object-cover" loading="lazy" width="200" height="200" />
-                    ) : (
-                      <div class="w-full aspect-square bg-gray-100 flex items-center justify-center">
-                        <svg class="w-8 h-8 text-gray-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg>
-                      </div>
-                    )}
-                    <div class="p-2">
-                      <div class="font-semibold text-xs line-clamp-2">{p.name}</div>
-                      <div class="text-xs text-gray-500 mt-0.5">{formatPrice(p.priceAmount, p.currency)}</div>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <p class="text-gray-500 text-sm">No extras available at the moment.</p>
-            )}
-          </div>
-        </section>
-
-        <!-- FAQ -->
-        <section class="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <div class="p-5">
-            <h2 class="font-bold text-lg mb-4">Frequently Asked Questions</h2>
-            <div class="space-y-2">
-              <details class="group border border-gray-200 rounded-lg">
-                <summary class="cursor-pointer p-4 font-medium text-sm flex items-center justify-between">
-                  How long does stringing take?
-                  <svg class="w-4 h-4 text-gray-400 group-open:rotate-180 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9" /></svg>
-                </summary>
-                <div class="px-4 pb-4 text-sm text-gray-600">
-                  Most orders are completed within 2-3 business days. Rush orders may be available — contact us for details.
-                </div>
-              </details>
-              <details class="group border border-gray-200 rounded-lg">
-                <summary class="cursor-pointer p-4 font-medium text-sm flex items-center justify-between">
-                  Can I bring my own head?
-                  <svg class="w-4 h-4 text-gray-400 group-open:rotate-180 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9" /></svg>
-                </summary>
-                <div class="px-4 pb-4 text-sm text-gray-600">
-                  Absolutely! Check the "I'm bringing my own head" box in the Head section and drop your head off at Stellar Athletics.
-                </div>
-              </details>
-              <details class="group border border-gray-200 rounded-lg">
-                <summary class="cursor-pointer p-4 font-medium text-sm flex items-center justify-between">
-                  What's your guarantee?
-                  <svg class="w-4 h-4 text-gray-400 group-open:rotate-180 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9" /></svg>
-                </summary>
-                <div class="px-4 pb-4 text-sm text-gray-600">
-                  If your stick isn't performing exactly how you want it, we'll restring it for free. No questions asked.
-                </div>
-              </details>
-              <details class="group border border-gray-200 rounded-lg">
-                <summary class="cursor-pointer p-4 font-medium text-sm flex items-center justify-between">
-                  Where do I pick up my order?
-                  <svg class="w-4 h-4 text-gray-400 group-open:rotate-180 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9" /></svg>
-                </summary>
-                <div class="px-4 pb-4 text-sm text-gray-600">
-                  All orders are picked up at Stellar Athletics — 876 North Lenola Road, Moorestown, New Jersey 08057, United States. You'll receive a pickup code when your order is ready.
-                </div>
-              </details>
-            </div>
-          </div>
-        </section>
-
+        </div><!-- end #form-sections -->
       </div><!-- end right column -->
     </div><!-- end grid -->
   </div>
@@ -422,7 +684,7 @@ const defaultHero = products.find((p) => p.images.length > 0)?.images[0] ?? '';
   <!-- ===== MOBILE STICKY BOTTOM BAR ===== -->
   <div
     id="mobile-bar"
-    class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg translate-y-full transition-transform lg:hidden z-40"
+    class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-40"
     style="padding-bottom: env(safe-area-inset-bottom, 0px);"
   >
     <div class="flex items-center justify-between px-4 py-3">
@@ -441,35 +703,61 @@ const defaultHero = products.find((p) => p.images.length > 0)?.images[0] ?? '';
   </div>
 
   <!-- ===== INLINE VANILLA JS ===== -->
-  <script is:inline>
+  <script is:inline define:vars={{ serviceProductsJson, dyeProductsJson, headProductsJson, meshProductsJson, rushProductsJson }}>
     (function() {
+      var serviceProducts = JSON.parse(serviceProductsJson);
+      var dyeProducts     = JSON.parse(dyeProductsJson);
+      var headProducts    = JSON.parse(headProductsJson);
+      var meshProducts    = JSON.parse(meshProductsJson);
+      var rushProducts    = JSON.parse(rushProductsJson);
+
       // ---- STATE ----
       var state = {
-        service: null,   // { id, priceId, amount, currency, playerType, image, name }
-        head: null,
-        mesh: null,
-        strings: null,
-        pocket: null,    // string
-        upsells: [],     // array of { id, priceId, amount, currency, image, name }
-        byoHead: false,
+        service: null,            // { priceId, amount, name, image } | null
+
+        dyeChoice: 'no',          // 'no' | 'yes'
+        dyeTierIndex: null,       // 0 (Tier 1) | 1 (Tier 2) | null
+        dyeTier: null,            // { priceId, amount, name } | null
+        dyeStyle: null,           // 'Bottom' | 'Top' | 'Solid' | null (Tier 1 only)
+        dyeColor: null,           // string | null
+        dyeDescription: '',       // string (Tier 2 only)
+        dyePhotoUrl: null,        // string | null (Tier 2 UploadThing URL)
+
+        headChoice: null,         // 'sending-own' | 'drop-off' | priceId | null
+        headDropOffLocation: 'Stellar Athletics',
+        headProduct: null,        // { priceId, amount, name } | null
+
+        meshChoice: null,         // 'sending-both' | 'sending-mesh-only' | priceId | null
+        meshProduct: null,        // { priceId, amount, name } | null
+
+        sidewallColor: null,      // string | null
+        shootersColor: null,      // string | null
+
+        pocketMode: 'design',     // 'design' | 'replicate'
+        pocketPlacement: null,    // 'Low' | 'Mid' | 'High' | null
+        pocketShooterSetup: null, // string | null
+        pocketShooterCustom: '',  // string
+        pocketWhip: 2,            // 1–4
+
+        pocketPhotoUrl: null,     // string | null (UploadThing URL)
+
+        customNotes: '',          // string
+        rushEnabled: false,       // boolean
+        rushProduct: rushProducts.length > 0 ? rushProducts[0] : null,
       };
 
       var isCheckingOut = false;
 
       // ---- DOM REFS ----
-      var heroImg = document.getElementById('hero-img');
-      var dCount = document.getElementById('d-count');
-      var dTotal = document.getElementById('d-total');
-      var dCheckout = document.getElementById('d-checkout-btn');
-      var mBar = document.getElementById('mobile-bar');
-      var mCount = document.getElementById('m-count');
-      var mTotal = document.getElementById('m-total');
-      var mCheckout = document.getElementById('m-checkout-btn');
-      var byoCheckbox = document.getElementById('byo-head');
-      var headGrid = document.getElementById('head-products');
-
-      // ---- WINDOW REFS ----
-      var siteUrl = window.location.origin;
+      var heroImg     = document.getElementById('hero-img');
+      var formSections = document.getElementById('form-sections');
+      var dCount      = document.getElementById('d-count');
+      var dTotal      = document.getElementById('d-total');
+      var dCheckout   = document.getElementById('d-checkout-btn');
+      var mBar        = document.getElementById('mobile-bar');
+      var mCount      = document.getElementById('m-count');
+      var mTotal      = document.getElementById('m-total');
+      var mCheckout   = document.getElementById('m-checkout-btn');
 
       // ---- SECTION TOGGLES ----
       document.querySelectorAll('.section-toggle').forEach(function(btn) {
@@ -487,230 +775,468 @@ const defaultHero = products.find((p) => p.images.length > 0)?.images[0] ?? '';
         });
       });
 
-      // ---- PRODUCT SELECTION (single-select per section) ----
-      document.querySelectorAll('.product-btn').forEach(function(btn) {
-        btn.addEventListener('click', function() {
-          var section = btn.dataset.section;
-          if (!section) return;
+      // ---- HERO IMAGE ----
+      function updateHero(src) {
+        if (heroImg && src) heroImg.src = src;
+      }
 
-          var info = {
-            id: btn.dataset.productId,
+      // ---- SHOW FORM SECTIONS (after service selected) ----
+      function showFormSections() {
+        if (formSections) formSections.classList.remove('hidden');
+      }
+
+      // ---- PLAYER TYPE FILTER ----
+      var dropOffLocationWrap = document.getElementById('drop-off-location-wrap');
+
+      function filterDropdownsByPlayerType(playerType) {
+        state.headChoice = null;
+        state.headProduct = null;
+        state.meshChoice = null;
+        state.meshProduct = null;
+
+        var headLabel = document.getElementById('head-dropdown-label');
+        var meshLabel = document.getElementById('mesh-dropdown-label');
+        if (headLabel) { headLabel.textContent = '— Choose your head option —'; headLabel.classList.add('text-gray-500', 'font-normal'); }
+        if (meshLabel) { meshLabel.textContent = '— Choose your mesh option —'; meshLabel.classList.add('text-gray-500', 'font-normal'); }
+        if (dropOffLocationWrap) dropOffLocationWrap.classList.add('hidden');
+
+        ['head-dropdown-item', 'mesh-dropdown-item'].forEach(function(cls) {
+          document.querySelectorAll('.' + cls).forEach(function(item) {
+            var itemType = item.dataset.playerType || '';
+            var visible = !playerType || itemType === '' || itemType === 'all' || itemType === playerType;
+            item.classList.toggle('hidden', !visible);
+          });
+        });
+      }
+
+      // ---- SERVICE CARD SELECTION ----
+      document.querySelectorAll('.service-card').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          document.querySelectorAll('.service-card').forEach(function(b) {
+            b.classList.remove('border-black', 'bg-gray-50');
+            b.classList.add('border-gray-200');
+          });
+          btn.classList.add('border-black', 'bg-gray-50');
+          btn.classList.remove('border-gray-200');
+
+          state.service = {
             priceId: btn.dataset.priceId,
             amount: parseInt(btn.dataset.priceAmount) || 0,
-            currency: btn.dataset.currency || 'usd',
+            name: btn.dataset.name,
+            image: btn.dataset.image,
             playerType: btn.dataset.playerType || null,
-            image: btn.dataset.image || '',
-            name: btn.dataset.name || '',
           };
 
-          if (section === 'upsell') {
-            // Multi-select for upsells
-            var idx = state.upsells.findIndex(function(u) { return u.id === info.id; });
-            if (idx >= 0) {
-              state.upsells.splice(idx, 1);
-              btn.classList.remove('border-black', 'bg-gray-50');
-              btn.classList.add('border-gray-200');
-            } else {
-              state.upsells.push(info);
-              btn.classList.add('border-black', 'bg-gray-50');
-              btn.classList.remove('border-gray-200');
-            }
-          } else {
-            // Single-select: toggle off if same item clicked
-            var current = state[section];
-            var allBtns = document.querySelectorAll('.product-btn[data-section="' + section + '"]');
-
-            if (current && current.id === info.id) {
-              // Deselect
-              state[section] = null;
-              allBtns.forEach(function(b) {
-                b.classList.remove('border-black', 'bg-gray-50');
-                b.classList.add('border-gray-200');
-              });
-            } else {
-              // Select new
-              state[section] = info;
-              allBtns.forEach(function(b) {
-                b.classList.remove('border-black', 'bg-gray-50');
-                b.classList.add('border-gray-200');
-              });
-              btn.classList.add('border-black', 'bg-gray-50');
-              btn.classList.remove('border-gray-200');
-            }
-
-            // If service changed, apply playerType filtering
-            if (section === 'service') {
-              applyPlayerTypeFilter();
-            }
-
-            // Update hero image
-            if (info.image && state[section]) {
-              updateHero(info.image);
-            }
-          }
-
+          filterDropdownsByPlayerType(state.service.playerType);
+          updateHero(state.service.image);
+          showFormSections();
           updateSummary();
           updateCheckmarks();
         });
       });
 
-      // ---- POCKET SELECTION ----
-      document.querySelectorAll('.pocket-btn').forEach(function(btn) {
-        btn.addEventListener('click', function() {
-          var pocket = btn.dataset.pocket;
-          var allPocketBtns = document.querySelectorAll('.pocket-btn');
+      // ---- DYE SECTION ----
+      var dyeNoBtn  = document.getElementById('dye-no');
+      var dyeYesBtn = document.getElementById('dye-yes');
+      var dyeDetails = document.getElementById('dye-details');
+      var dyeTier1Panel = document.getElementById('dye-tier1-panel');
+      var dyeTier2Panel = document.getElementById('dye-tier2-panel');
 
-          if (state.pocket === pocket) {
-            // Deselect
-            state.pocket = null;
-            allPocketBtns.forEach(function(b) {
-              b.classList.remove('border-black', 'bg-gray-50');
-              b.classList.add('border-gray-200');
-            });
-          } else {
-            state.pocket = pocket;
-            allPocketBtns.forEach(function(b) {
-              b.classList.remove('border-black', 'bg-gray-50');
-              b.classList.add('border-gray-200');
-            });
-            btn.classList.add('border-black', 'bg-gray-50');
-            btn.classList.remove('border-gray-200');
-          }
-
-          updateSummary();
-          updateCheckmarks();
-        });
-      });
-
-      // ---- BYO HEAD TOGGLE ----
-      if (byoCheckbox) {
-        byoCheckbox.addEventListener('change', function() {
-          state.byoHead = byoCheckbox.checked;
-          if (state.byoHead) {
-            // Hide head product grid, clear head selection
-            if (headGrid) headGrid.classList.add('hidden');
-            state.head = null;
-            document.querySelectorAll('.product-btn[data-section="head"]').forEach(function(b) {
-              b.classList.remove('border-black', 'bg-gray-50');
-              b.classList.add('border-gray-200');
-            });
-          } else {
-            if (headGrid) headGrid.classList.remove('hidden');
-          }
-          updateSummary();
-          updateCheckmarks();
-        });
-      }
-
-      // ---- PLAYER TYPE FILTERING ----
-      function applyPlayerTypeFilter() {
-        var selectedType = state.service ? state.service.playerType : null;
-        var filteredSections = ['head', 'mesh'];
-
-        filteredSections.forEach(function(sec) {
-          var btns = document.querySelectorAll('.product-btn[data-section="' + sec + '"]');
-          var currentSelection = state[sec];
-          var selectionHidden = false;
-
-          btns.forEach(function(btn) {
-            var pt = btn.dataset.playerType;
-            // Show if: no filter, no playerType on product, or matches
-            if (!selectedType || !pt || pt === selectedType) {
-              btn.classList.remove('hidden');
-            } else {
-              btn.classList.add('hidden');
-              // If currently selected product is now hidden, deselect
-              if (currentSelection && currentSelection.id === btn.dataset.productId) {
-                selectionHidden = true;
-              }
-            }
-          });
-
-          if (selectionHidden) {
-            state[sec] = null;
-            btns.forEach(function(b) {
-              b.classList.remove('border-black', 'bg-gray-50');
-              b.classList.add('border-gray-200');
-            });
+      function setDyeActive(btn) {
+        [dyeNoBtn, dyeYesBtn].forEach(function(b) {
+          if (b) {
+            b.classList.remove('border-black', 'bg-gray-50');
+            b.classList.add('border-gray-200');
           }
         });
-      }
-
-      // ---- UPDATE HERO IMAGE ----
-      function updateHero(src) {
-        if (heroImg && src) {
-          heroImg.src = src;
+        if (btn) {
+          btn.classList.add('border-black', 'bg-gray-50');
+          btn.classList.remove('border-gray-200');
         }
       }
 
-      // ---- UPDATE SUMMARY (totals + item count) ----
-      function updateSummary() {
+      if (dyeNoBtn) {
+        dyeNoBtn.addEventListener('click', function() {
+          state.dyeChoice = 'no';
+          state.dyeTier = null;
+          state.dyeTierIndex = null;
+          state.dyeStyle = null;
+          state.dyeColor = null;
+          state.dyeDescription = '';
+          state.dyePhotoUrl = null;
+          setDyeActive(dyeNoBtn);
+          if (dyeDetails) dyeDetails.classList.add('hidden');
+          updateSummary();
+          updateCheckmarks();
+        });
+      }
+
+      if (dyeYesBtn) {
+        dyeYesBtn.addEventListener('click', function() {
+          state.dyeChoice = 'yes';
+          setDyeActive(dyeYesBtn);
+          if (dyeDetails) dyeDetails.classList.remove('hidden');
+          updateSummary();
+          updateCheckmarks();
+        });
+      }
+
+      // Dye tier buttons
+      document.querySelectorAll('.dye-tier-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          document.querySelectorAll('.dye-tier-btn').forEach(function(b) {
+            b.classList.remove('border-black', 'bg-gray-50');
+            b.classList.add('border-gray-200');
+          });
+          btn.classList.add('border-black', 'bg-gray-50');
+          btn.classList.remove('border-gray-200');
+
+          var idx = parseInt(btn.dataset.dyeTierIndex) || 0;
+          state.dyeTierIndex = idx;
+          state.dyeTier = {
+            priceId: btn.dataset.priceId,
+            amount: parseInt(btn.dataset.priceAmount) || 0,
+            name: btn.dataset.name,
+          };
+          state.dyeStyle = null;
+          state.dyeColor = null;
+
+          if (dyeTier1Panel) dyeTier1Panel.classList.toggle('hidden', idx !== 0);
+          if (dyeTier2Panel) dyeTier2Panel.classList.toggle('hidden', idx !== 1);
+
+          updateSummary();
+          updateCheckmarks();
+        });
+      });
+
+      // Dye style buttons (Tier 1)
+      document.querySelectorAll('.dye-style-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          document.querySelectorAll('.dye-style-btn').forEach(function(b) {
+            b.classList.remove('border-black', 'bg-gray-50');
+            b.classList.add('border-gray-200');
+          });
+          btn.classList.add('border-black', 'bg-gray-50');
+          btn.classList.remove('border-gray-200');
+          state.dyeStyle = btn.dataset.dyeStyle;
+          updateCheckmarks();
+        });
+      });
+
+      // Dye description (Tier 2)
+      var dyeDescTextarea = document.getElementById('dye-description');
+      if (dyeDescTextarea) {
+        dyeDescTextarea.addEventListener('input', function() {
+          state.dyeDescription = dyeDescTextarea.value;
+        });
+      }
+
+      // ---- COLOR PICKERS (sidewall, shooters, dye) ----
+      document.querySelectorAll('.color-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          var section = btn.dataset.colorSection;
+          var colorName = btn.dataset.colorName;
+
+          // Deselect others in same section
+          document.querySelectorAll('.color-btn[data-color-section="' + section + '"]').forEach(function(b) {
+            b.classList.remove('ring-2', 'ring-black');
+          });
+          btn.classList.add('ring-2', 'ring-black');
+
+          if (section === 'sidewall') {
+            state.sidewallColor = colorName;
+            var lbl = document.getElementById('sidewall-color-label');
+            var nm  = document.getElementById('sidewall-color-name');
+            if (lbl) lbl.classList.remove('hidden');
+            if (nm) nm.textContent = colorName;
+          } else if (section === 'shooters') {
+            state.shootersColor = colorName;
+            var lbl2 = document.getElementById('shooters-color-label');
+            var nm2  = document.getElementById('shooters-color-name');
+            if (lbl2) lbl2.classList.remove('hidden');
+            if (nm2) nm2.textContent = colorName;
+          } else if (section === 'dye') {
+            state.dyeColor = colorName;
+          }
+
+          updateSummary();
+          updateCheckmarks();
+        });
+      });
+
+      // ---- CUSTOM DROPDOWN HELPER ----
+      function initDropdown(containerId, buttonId, menuId, labelId, itemClass, onSelect) {
+        var container = document.getElementById(containerId);
+        var button    = document.getElementById(buttonId);
+        var menu      = document.getElementById(menuId);
+        var label     = document.getElementById(labelId);
+        if (!container || !button || !menu) return;
+
+        var isOpen = false;
+        function toggleMenu(state) {
+          isOpen = state;
+          button.setAttribute('aria-expanded', String(isOpen));
+          if (isOpen) {
+            menu.classList.remove('opacity-0', 'scale-95', 'pointer-events-none');
+            menu.classList.add('opacity-100', 'scale-100');
+          } else {
+            menu.classList.remove('opacity-100', 'scale-100');
+            menu.classList.add('opacity-0', 'scale-95', 'pointer-events-none');
+          }
+        }
+
+        button.addEventListener('click', function() { toggleMenu(!isOpen); });
+
+        document.addEventListener('mousedown', function(e) {
+          if (isOpen && !container.contains(e.target)) toggleMenu(false);
+        });
+
+        document.addEventListener('keydown', function(e) {
+          if (e.key === 'Escape' && isOpen) { toggleMenu(false); button.focus(); }
+        });
+
+        document.querySelectorAll('.' + itemClass).forEach(function(item) {
+          item.addEventListener('click', function() {
+            if (label) {
+              label.textContent = item.dataset.name || item.textContent.trim();
+              label.classList.remove('text-gray-500', 'font-normal');
+            }
+            toggleMenu(false);
+            onSelect(item.dataset);
+          });
+        });
+      }
+
+      // ---- HEAD DROPDOWN ----
+      var dropOffLocation = document.getElementById('drop-off-location');
+
+      initDropdown('head-dropdown-container', 'head-dropdown-button', 'head-dropdown-menu', 'head-dropdown-label', 'head-dropdown-item', function(data) {
+        var val = data.value || '';
+        state.headChoice = val || null;
+        state.headProduct = null;
+        if (dropOffLocationWrap) dropOffLocationWrap.classList.toggle('hidden', val !== 'drop-off');
+        if (val && val !== 'sending-own' && val !== 'drop-off') {
+          var product = headProducts.find(function(p) { return p.priceId === val; });
+          if (product) state.headProduct = { priceId: product.priceId, amount: product.priceAmount || 0, name: product.name };
+        }
+        updateSummary();
+        updateCheckmarks();
+      });
+
+      if (dropOffLocation) {
+        dropOffLocation.addEventListener('change', function() {
+          state.headDropOffLocation = dropOffLocation.value;
+        });
+      }
+
+      // ---- MESH DROPDOWN ----
+      initDropdown('mesh-dropdown-container', 'mesh-dropdown-button', 'mesh-dropdown-menu', 'mesh-dropdown-label', 'mesh-dropdown-item', function(data) {
+        var val = data.value || '';
+        state.meshChoice = val || null;
+        state.meshProduct = null;
+        if (val && val !== 'sending-both' && val !== 'sending-mesh-only') {
+          var product = meshProducts.find(function(p) { return p.priceId === val; });
+          if (product) state.meshProduct = { priceId: product.priceId, amount: product.priceAmount || 0, name: product.name };
+        }
+        updateSummary();
+        updateCheckmarks();
+      });
+
+      // ---- POCKET MODE TABS ----
+      var pocketTabDesign    = document.getElementById('pocket-tab-design');
+      var pocketTabReplicate = document.getElementById('pocket-tab-replicate');
+      var pocketDesignPanel  = document.getElementById('pocket-design-panel');
+      var pocketReplicatePanel = document.getElementById('pocket-replicate-panel');
+
+      function setPocketTab(mode) {
+        state.pocketMode = mode;
+        if (mode === 'design') {
+          if (pocketDesignPanel) pocketDesignPanel.classList.remove('hidden');
+          if (pocketReplicatePanel) pocketReplicatePanel.classList.add('hidden');
+          if (pocketTabDesign) {
+            pocketTabDesign.classList.add('bg-white', 'shadow-sm');
+            pocketTabDesign.classList.remove('text-gray-500');
+          }
+          if (pocketTabReplicate) {
+            pocketTabReplicate.classList.remove('bg-white', 'shadow-sm');
+            pocketTabReplicate.classList.add('text-gray-500');
+          }
+        } else {
+          if (pocketDesignPanel) pocketDesignPanel.classList.add('hidden');
+          if (pocketReplicatePanel) pocketReplicatePanel.classList.remove('hidden');
+          if (pocketTabReplicate) {
+            pocketTabReplicate.classList.add('bg-white', 'shadow-sm');
+            pocketTabReplicate.classList.remove('text-gray-500');
+          }
+          if (pocketTabDesign) {
+            pocketTabDesign.classList.remove('bg-white', 'shadow-sm');
+            pocketTabDesign.classList.add('text-gray-500');
+          }
+        }
+        updateSummary();
+        updateCheckmarks();
+      }
+
+      if (pocketTabDesign)    pocketTabDesign.addEventListener('click',    function() { setPocketTab('design'); });
+      if (pocketTabReplicate) pocketTabReplicate.addEventListener('click', function() { setPocketTab('replicate'); });
+
+      // ---- POCKET PLACEMENT ----
+      document.querySelectorAll('.placement-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          document.querySelectorAll('.placement-btn').forEach(function(b) {
+            b.classList.remove('border-black', 'bg-gray-50');
+            b.classList.add('border-gray-200');
+          });
+          btn.classList.add('border-black', 'bg-gray-50');
+          btn.classList.remove('border-gray-200');
+          state.pocketPlacement = btn.dataset.placement;
+          updateSummary();
+          updateCheckmarks();
+        });
+      });
+
+      // ---- SHOOTER SETUP BUTTONS ----
+      var shooterCustomWrap = document.getElementById('shooter-custom-wrap');
+      var shooterCustomText = document.getElementById('shooter-custom-text');
+
+      document.querySelectorAll('.shooter-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          document.querySelectorAll('.shooter-btn').forEach(function(b) {
+            b.classList.remove('border-black', 'bg-gray-50');
+            b.classList.add('border-gray-200');
+          });
+          btn.classList.add('border-black', 'bg-gray-50');
+          btn.classList.remove('border-gray-200');
+          state.pocketShooterSetup = btn.dataset.shooterValue || null;
+          if (shooterCustomWrap) shooterCustomWrap.classList.toggle('hidden', btn.dataset.shooterValue !== 'Custom');
+          updateSummary();
+          updateCheckmarks();
+        });
+      });
+
+      if (shooterCustomText) {
+        shooterCustomText.addEventListener('input', function() {
+          state.pocketShooterCustom = shooterCustomText.value;
+          updateCheckmarks();
+        });
+      }
+
+      // ---- WHIP SLIDER ----
+      var whipSlider = document.getElementById('whip-slider');
+      var whipLabel  = document.getElementById('whip-label');
+      var WHIP_LABELS = ['', 'Low', 'Med', 'High', 'Max'];
+
+      if (whipSlider) {
+        whipSlider.addEventListener('input', function() {
+          state.pocketWhip = parseInt(whipSlider.value) || 2;
+          if (whipLabel) whipLabel.textContent = WHIP_LABELS[state.pocketWhip] || 'Med';
+        });
+      }
+
+      // ---- CUSTOM NOTES ----
+      var customNotesEl = document.getElementById('custom-notes');
+      if (customNotesEl) {
+        customNotesEl.addEventListener('input', function() {
+          state.customNotes = customNotesEl.value;
+        });
+      }
+
+      // ---- RUSH ORDER TOGGLE ----
+      var rushToggle = document.getElementById('rush-toggle');
+      if (rushToggle) {
+        rushToggle.addEventListener('click', function() {
+          state.rushEnabled = !state.rushEnabled;
+          rushToggle.textContent = state.rushEnabled ? 'Remove' : 'Add';
+          var wrap = document.getElementById('rush-toggle-wrap');
+          if (wrap) {
+            wrap.classList.toggle('border-black', state.rushEnabled);
+            wrap.classList.toggle('bg-gray-50', state.rushEnabled);
+            wrap.classList.toggle('border-gray-200', !state.rushEnabled);
+          }
+          updateSummary();
+          updateCheckmarks();
+        });
+      }
+
+      // ---- UPLOADTHING → VANILLA JS ----
+      window.addEventListener('shopUploadComplete', function(e) {
+        var route = e.detail.route;
+        var url   = e.detail.url;
+        if (route === 'dyeReference') state.dyePhotoUrl = url;
+        if (route === 'pocketPhoto')  state.pocketPhotoUrl = url;
+        updateSummary();
+        updateCheckmarks();
+      });
+
+      // ---- CALC TOTAL ----
+      function calcTotal() {
         var total = 0;
+        if (state.service && state.service.amount) total += state.service.amount;
+        if (state.dyeChoice === 'yes' && state.dyeTier) total += state.dyeTier.amount;
+        if (state.headProduct) total += state.headProduct.amount;
+        if (state.meshProduct) total += state.meshProduct.amount;
+        if (state.rushEnabled && state.rushProduct) total += state.rushProduct.amount;
+        return total;
+      }
+
+      // ---- READY TO CHECKOUT ----
+      function isReadyToCheckout() {
+        if (!state.service) return false;
+        if (!state.headChoice) return false;
+        if (!state.meshChoice) return false;
+        if (!state.sidewallColor) return false;
+        if (!state.shootersColor) return false;
+
+        if (state.pocketMode === 'design') {
+          if (!state.pocketPlacement) return false;
+          if (!state.pocketShooterSetup) return false;
+          if (state.pocketShooterSetup === 'Custom' && !state.pocketShooterCustom.trim()) return false;
+        } else {
+          if (!state.pocketPhotoUrl) return false;
+        }
+
+        if (state.dyeChoice === 'yes') {
+          if (!state.dyeTier) return false;
+          if (state.dyeTierIndex === 0 && !state.dyeStyle) return false;
+        }
+
+        return true;
+      }
+
+      // ---- UPDATE SUMMARY ----
+      function updateSummary() {
+        var total = calcTotal();
         var count = 0;
-
-        ['service', 'head', 'mesh', 'strings'].forEach(function(key) {
-          if (state[key] && state[key].amount) {
-            total += state[key].amount;
-            count++;
-          }
-        });
-
-        state.upsells.forEach(function(u) {
-          if (u.amount) {
-            total += u.amount;
-            count++;
-          }
-        });
-
-        // Pocket counts as a selection but has no price
-        if (state.pocket) count++;
-        // BYO head counts as head selection (no price)
-        if (state.byoHead) count++;
+        if (state.service) count++;
+        if (state.dyeChoice === 'yes' && state.dyeTier) count++;
+        if (state.headChoice) count++;
+        if (state.meshChoice) count++;
+        if (state.rushEnabled) count++;
 
         var formatted = '$' + (total / 100).toFixed(2);
 
-        // Desktop
-        if (dCount) dCount.textContent = count;
+        if (dCount) dCount.textContent = String(count);
         if (dTotal) dTotal.textContent = formatted;
-
-        // Mobile
-        if (mCount) mCount.textContent = count;
+        if (mCount) mCount.textContent = String(count);
         if (mTotal) mTotal.textContent = formatted;
 
-        // Show/hide mobile bar
-        if (mBar) {
-          if (count > 0) {
-            mBar.classList.remove('translate-y-full');
-          } else {
-            mBar.classList.add('translate-y-full');
-          }
-        }
 
-        // Enable/disable checkout
         var canCheckout = isReadyToCheckout();
         if (dCheckout) dCheckout.disabled = !canCheckout;
         if (mCheckout) mCheckout.disabled = !canCheckout;
       }
 
-      // ---- CHECK IF READY FOR CHECKOUT ----
-      function isReadyToCheckout() {
-        if (!state.service) return false;
-        if (!state.head && !state.byoHead) return false;
-        if (!state.mesh) return false;
-        if (!state.strings) return false;
-        if (!state.pocket) return false;
-        return true;
-      }
-
       // ---- SECTION CHECKMARKS ----
       function updateCheckmarks() {
         var checks = {
-          service: !!state.service,
-          head: !!state.head || state.byoHead,
-          mesh: !!state.mesh,
-          strings: !!state.strings,
-          pocket: !!state.pocket,
-          upsell: state.upsells.length > 0,
+          service:  !!state.service,
+          dye:      state.dyeChoice === 'no' || (state.dyeChoice === 'yes' && !!state.dyeTier && (state.dyeTierIndex !== 0 || !!state.dyeStyle)),
+          head:     !!state.headChoice,
+          mesh:     !!state.meshChoice,
+          sidewall: !!state.sidewallColor,
+          shooters: !!state.shootersColor,
+          pocket:   state.pocketMode === 'replicate' ? !!state.pocketPhotoUrl : (!!state.pocketPlacement && !!state.pocketShooterSetup && (state.pocketShooterSetup !== 'Custom' || !!state.pocketShooterCustom.trim())),
+          notes:    false, // optional, never shows a check
         };
 
         Object.keys(checks).forEach(function(key) {
@@ -718,16 +1244,97 @@ const defaultHero = products.find((p) => p.images.length > 0)?.images[0] ?? '';
           if (!section) return;
           var checkIcon = section.querySelector('.section-check');
           if (checkIcon) {
-            if (checks[key]) {
-              checkIcon.classList.remove('hidden');
-            } else {
-              checkIcon.classList.add('hidden');
-            }
+            if (checks[key]) checkIcon.classList.remove('hidden');
+            else checkIcon.classList.add('hidden');
           }
         });
       }
 
+      // ---- BUILD pocketPreference STRING ----
+      function sanitize(str) {
+        return (str || '').replace(/\|/g, ' - ').replace(/\n/g, ' ').trim();
+      }
+
+      function buildPocketPreference() {
+        var parts = [];
+
+        // Dye
+        if (state.dyeChoice === 'no') {
+          parts.push('Dye:No');
+        } else if (state.dyeTierIndex === 0) {
+          parts.push('Dye:Tier1,' + (state.dyeStyle || '') + ',' + (state.dyeColor || ''));
+        } else if (state.dyeTierIndex === 1) {
+          parts.push('Dye:Tier2,' + sanitize(state.dyeDescription) + ',' + (state.dyeColor || '') + ',' + (state.dyePhotoUrl || ''));
+        }
+
+        // Head
+        if (state.headChoice === 'sending-own') {
+          parts.push('Head:SendingOwn');
+        } else if (state.headChoice === 'drop-off') {
+          parts.push('Head:DropOff,' + state.headDropOffLocation);
+        } else if (state.headProduct) {
+          parts.push('Head:Buying,' + state.headProduct.name);
+        }
+
+        // Mesh
+        if (state.meshChoice === 'sending-both') {
+          parts.push('Mesh:SendingBoth');
+        } else if (state.meshChoice === 'sending-mesh-only') {
+          parts.push('Mesh:SendingMeshOnly');
+        } else if (state.meshProduct) {
+          parts.push('Mesh:Buying,' + state.meshProduct.name);
+        }
+
+        // Colors
+        parts.push('Sidewall:' + (state.sidewallColor || ''));
+        parts.push('Shooters:' + (state.shootersColor || ''));
+
+        // Pocket
+        if (state.pocketMode === 'design') {
+          var shooterVal = state.pocketShooterSetup === 'Custom'
+            ? 'Custom:' + sanitize(state.pocketShooterCustom)
+            : (state.pocketShooterSetup || '');
+          parts.push('Pocket:Design,' + (state.pocketPlacement || '') + ',' + shooterVal + ',Whip' + state.pocketWhip);
+        } else {
+          parts.push('Pocket:Replicate,' + (state.pocketPhotoUrl || ''));
+        }
+
+        // Notes
+        if (state.customNotes.trim()) {
+          parts.push('Notes:' + sanitize(state.customNotes));
+        }
+
+        return parts.join(' | ');
+      }
+
+      // ---- BUILD CART ITEMS ----
+      function buildCartItems() {
+        var items = [];
+        if (state.service && state.service.priceId) {
+          items.push({ priceId: state.service.priceId, quantity: 1 });
+        }
+        if (state.dyeChoice === 'yes' && state.dyeTier && state.dyeTier.priceId) {
+          items.push({ priceId: state.dyeTier.priceId, quantity: 1 });
+        }
+        if (state.headProduct && state.headProduct.priceId) {
+          items.push({ priceId: state.headProduct.priceId, quantity: 1 });
+        }
+        if (state.meshProduct && state.meshProduct.priceId) {
+          items.push({ priceId: state.meshProduct.priceId, quantity: 1 });
+        }
+        if (state.rushEnabled && state.rushProduct && state.rushProduct.priceId) {
+          items.push({ priceId: state.rushProduct.priceId, quantity: 1 });
+        }
+        return items;
+      }
+
       // ---- CHECKOUT ----
+      function resetCheckoutButtons() {
+        isCheckingOut = false;
+        if (dCheckout) { dCheckout.disabled = false; dCheckout.textContent = 'Checkout'; }
+        if (mCheckout) { mCheckout.disabled = false; mCheckout.textContent = 'Checkout'; }
+      }
+
       function doCheckout() {
         if (isCheckingOut) return;
         if (!isReadyToCheckout()) return;
@@ -736,21 +1343,9 @@ const defaultHero = products.find((p) => p.images.length > 0)?.images[0] ?? '';
         if (dCheckout) { dCheckout.disabled = true; dCheckout.textContent = 'Processing...'; }
         if (mCheckout) { mCheckout.disabled = true; mCheckout.textContent = 'Processing...'; }
 
-        // Build items array (only items with priceId)
-        var items = [];
-        ['service', 'head', 'mesh', 'strings'].forEach(function(key) {
-          if (state[key] && state[key].priceId) {
-            items.push({ priceId: state[key].priceId, quantity: 1 });
-          }
-        });
-        state.upsells.forEach(function(u) {
-          if (u.priceId) {
-            items.push({ priceId: u.priceId, quantity: 1 });
-          }
-        });
-
+        var items = buildCartItems();
         if (items.length === 0) {
-          alert('No items with prices selected.');
+          alert('No items selected. Please choose a service first.');
           resetCheckoutButtons();
           return;
         }
@@ -761,12 +1356,12 @@ const defaultHero = products.find((p) => p.images.length > 0)?.images[0] ?? '';
           body: JSON.stringify({
             items: items,
             mode: 'payment',
-            pocketPreference: state.pocket,
-            siteUrl: siteUrl,
+            pocketPreference: buildPocketPreference(),
+            siteUrl: window.location.origin,
           }),
         })
         .then(function(res) {
-          if (!res.ok) throw new Error('Checkout failed');
+          if (!res.ok) throw new Error('Checkout failed: ' + res.status);
           return res.json();
         })
         .then(function(data) {
@@ -783,13 +1378,6 @@ const defaultHero = products.find((p) => p.images.length > 0)?.images[0] ?? '';
         });
       }
 
-      function resetCheckoutButtons() {
-        isCheckingOut = false;
-        if (dCheckout) { dCheckout.disabled = false; dCheckout.textContent = 'Checkout'; }
-        if (mCheckout) { mCheckout.disabled = false; mCheckout.textContent = 'Checkout'; }
-      }
-
-      // Wire up checkout buttons
       if (dCheckout) dCheckout.addEventListener('click', doCheckout);
       if (mCheckout) mCheckout.addEventListener('click', doCheckout);
 

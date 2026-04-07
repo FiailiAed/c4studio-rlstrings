@@ -1,0 +1,245 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import ProductImageUploader from '../../../components/admin/ProductImageUploader';
+
+const auth = Astro.locals.auth();
+const { userId } = auth;
+if (!userId) return Astro.redirect('/admin/sign-in');
+
+const CATEGORY_LABELS: Record<string, string> = {
+  head: 'Heads',
+  shaft: 'Shafts',
+  mesh: 'Mesh',
+  strings: 'Strings',
+  service: 'Services',
+  upsell: 'Upsells',
+  dye: 'Dye',
+};
+---
+
+<AdminLayout
+  title="New Product | RL Strings Admin"
+  description="Create a new product."
+  activePage="Inventory"
+  pageTitle="New Product"
+>
+  <!-- Back link -->
+  <div class="mb-6">
+    <a
+      href="/admin/products"
+      class="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-white transition-colors"
+    >
+      <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
+      All Products
+    </a>
+  </div>
+
+  <div class="max-w-xl">
+    <div class="rounded-xl bg-gray-800 ring-1 ring-white/10 overflow-hidden">
+      <div class="px-6 py-5 border-b border-white/10">
+        <h2 class="text-base font-semibold text-white">Product Details</h2>
+        <p class="text-xs text-gray-500 mt-0.5">Creates a product + price in Stripe, then syncs to inventory.</p>
+      </div>
+
+      <div class="px-6 py-5 space-y-5">
+        <!-- Name -->
+        <div>
+          <label for="new-name" class="block text-xs font-medium text-gray-400 mb-1.5">
+            Name <span class="text-red-400">*</span>
+          </label>
+          <input
+            id="new-name"
+            type="text"
+            placeholder="e.g. Signature Mesh"
+            class="w-full rounded-md bg-gray-900 border border-white/10 px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-white/20"
+          />
+        </div>
+
+        <!-- Description -->
+        <div>
+          <label for="new-description" class="block text-xs font-medium text-gray-400 mb-1.5">Description</label>
+          <textarea
+            id="new-description"
+            rows={3}
+            placeholder="Optional product description"
+            class="w-full rounded-md bg-gray-900 border border-white/10 px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-white/20 resize-none"
+          ></textarea>
+        </div>
+
+        <!-- Price -->
+        <div>
+          <label for="new-price" class="block text-xs font-medium text-gray-400 mb-1.5">
+            Price (USD) <span class="text-red-400">*</span>
+          </label>
+          <div class="relative">
+            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm select-none">$</span>
+            <input
+              id="new-price"
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="0.00"
+              class="w-full rounded-md bg-gray-900 border border-white/10 pl-7 pr-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-white/20"
+            />
+          </div>
+          <p class="text-xs text-gray-600 mt-1">Enter in dollars. Stripe stores in cents.</p>
+        </div>
+
+        <!-- Category + Player Type row -->
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label for="new-category" class="block text-xs font-medium text-gray-400 mb-1.5">
+              Category <span class="text-red-400">*</span>
+            </label>
+            <select
+              id="new-category"
+              class="w-full rounded-md bg-gray-900 border border-white/10 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-white/20"
+            >
+              {Object.entries(CATEGORY_LABELS).map(([val, label]) => (
+                <option value={val}>{label}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label for="new-playerType" class="block text-xs font-medium text-gray-400 mb-1.5">Player Type</label>
+            <select
+              id="new-playerType"
+              class="w-full rounded-md bg-gray-900 border border-white/10 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-white/20"
+            >
+              <option value="">— None —</option>
+              <option value="all">All</option>
+              <option value="boys">Boys</option>
+              <option value="girls">Girls</option>
+              <option value="goalies">Goalies</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Stock -->
+        <div>
+          <label for="new-stock" class="block text-xs font-medium text-gray-400 mb-1.5">
+            Initial Stock <span class="text-red-400">*</span>
+          </label>
+          <input
+            id="new-stock"
+            type="number"
+            min="0"
+            value="0"
+            class="w-full rounded-md bg-gray-900 border border-white/10 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-white/20"
+          />
+        </div>
+
+        <!-- Visibility -->
+        <div>
+          <p class="text-xs font-medium text-gray-400 mb-2">Visibility</p>
+          <div class="flex gap-6">
+            <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+              <input
+                id="new-showInShop"
+                type="checkbox"
+                class="rounded border-white/20 bg-gray-900 text-indigo-600"
+              />
+              Show in Shop
+            </label>
+            <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+              <input
+                id="new-showInBuilder"
+                type="checkbox"
+                class="rounded border-white/20 bg-gray-900 text-indigo-600"
+              />
+              Show in Builder
+            </label>
+          </div>
+        </div>
+
+        <!-- Image upload island -->
+        <div class="pt-1">
+          <ProductImageUploader client:load hiddenInputId="new-images-json" />
+          <input type="hidden" id="new-images-json" value="[]" />
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div class="px-6 py-4 border-t border-white/10 flex justify-end gap-3">
+        <a
+          href="/admin/products"
+          class="rounded-md bg-white/5 px-4 py-2 text-sm font-medium text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+        >
+          Cancel
+        </a>
+        <button
+          id="new-submit-btn"
+          type="button"
+          onclick="submitNewProduct(this)"
+          class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 transition-colors disabled:opacity-50"
+        >
+          Create Product
+        </button>
+      </div>
+    </div>
+  </div>
+</AdminLayout>
+
+<script>
+  async function submitNewProduct(btn: HTMLButtonElement) {
+    const nameEl = document.getElementById('new-name') as HTMLInputElement | null;
+    const descEl = document.getElementById('new-description') as HTMLTextAreaElement | null;
+    const priceEl = document.getElementById('new-price') as HTMLInputElement | null;
+    const catEl = document.getElementById('new-category') as HTMLSelectElement | null;
+    const playerTypeEl = document.getElementById('new-playerType') as HTMLSelectElement | null;
+    const stockEl = document.getElementById('new-stock') as HTMLInputElement | null;
+    const shopEl = document.getElementById('new-showInShop') as HTMLInputElement | null;
+    const builderEl = document.getElementById('new-showInBuilder') as HTMLInputElement | null;
+    const imagesEl = document.getElementById('new-images-json') as HTMLInputElement | null;
+
+    const name = nameEl?.value.trim() ?? '';
+    const price = parseFloat(priceEl?.value ?? '0');
+    const category = catEl?.value ?? 'service';
+    const stock = parseInt(stockEl?.value ?? '0', 10);
+
+    if (!name) { alert('Name is required.'); nameEl?.focus(); return; }
+    if (isNaN(price) || price <= 0) { alert('Please enter a valid price greater than $0.'); priceEl?.focus(); return; }
+
+    let images: string[] = [];
+    try {
+      images = JSON.parse(imagesEl?.value ?? '[]') as string[];
+    } catch { images = []; }
+
+    btn.disabled = true;
+    const original = btn.textContent ?? '';
+    btn.textContent = 'Creating…';
+
+    try {
+      const res = await fetch('/api/admin/inventory/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name,
+          description: descEl?.value.trim() || undefined,
+          unitAmount: Math.round(price * 100),
+          category,
+          playerType: playerTypeEl?.value || undefined,
+          stock,
+          showInShop: shopEl?.checked ?? false,
+          showInBuilder: builderEl?.checked ?? false,
+          images: images.length > 0 ? images : undefined,
+        }),
+      });
+
+      const data = await res.json() as { success?: boolean; error?: string };
+      if (!res.ok) throw new Error(data.error ?? 'Create failed');
+
+      window.location.href = '/admin/products';
+    } catch (err) {
+      console.error(err);
+      btn.disabled = false;
+      btn.textContent = original;
+      alert('Create failed: ' + (err instanceof Error ? err.message : 'Unknown error'));
+    }
+  }
+
+  // Expose for inline onclick handler
+  (window as Window & { submitNewProduct?: typeof submitNewProduct }).submitNewProduct = submitNewProduct;
+</script>

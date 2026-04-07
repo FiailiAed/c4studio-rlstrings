@@ -38,6 +38,18 @@ const STATUS_COLORS: Record<string, string> = {
   completed: 'bg-gray-500/20 text-gray-400 ring-1 ring-gray-500/30',
 };
 
+// Statuses shown in filter panel (active statuses only, no legacy)
+const FILTER_STATUSES = [
+  { value: 'paid', label: 'Paid' },
+  { value: 'dropped_off', label: 'Dropped Off' },
+  { value: 'stringing', label: 'Stringing' },
+  { value: 'strung', label: 'Strung' },
+  { value: 'ready_for_pickup', label: 'Ready for Pickup' },
+  { value: 'picked_up_by_customer', label: 'Picked Up' },
+  { value: 'review', label: 'Review' },
+  { value: 'completed', label: 'Completed' },
+];
+
 function statusLabel(s: string) { return STATUS_LABELS[s] ?? s.replace(/_/g, ' '); }
 function statusColor(s: string) { return STATUS_COLORS[s] ?? 'bg-gray-500/20 text-gray-400 ring-1 ring-gray-500/30'; }
 function formatCents(cents: number) { return `$${(cents / 100).toFixed(2)}`; }
@@ -65,18 +77,240 @@ const NEXT_STATUS: Record<string, string[]> = {
   activePage="Orders"
   pageTitle="Orders"
 >
-  <!-- Toolbar -->
-  <div class="mb-6 flex items-center justify-end">
+  <!-- Toolbar: Search + Filter + Refresh -->
+  <div class="mb-6 flex items-center gap-2 relative">
+
+    <!-- Search -->
+    <div class="relative flex-1 min-w-0">
+      <svg class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
+      <input
+        id="search-input"
+        type="search"
+        placeholder="Search by order # or customer…"
+        class="w-full rounded-md bg-white/10 pl-9 pr-4 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-white/30 [&::-webkit-search-cancel-button]:hidden"
+      />
+    </div>
+
+    <!-- Filter button + dropdown wrapper -->
+    <div class="relative shrink-0">
+      <button
+        id="filter-btn"
+        class="inline-flex items-center gap-1.5 rounded-md bg-white/10 px-3 py-2 text-sm font-medium text-white hover:bg-white/20 transition-colors"
+      >
+        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M3.75 5.25h16.5m-16.5 4.5h16.5m-16.5 4.5h16.5m-16.5 4.5h16.5" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+        Filter
+        <span id="filter-badge" class="hidden rounded-full bg-indigo-500 px-1.5 py-0.5 text-xs font-bold leading-none text-white">0</span>
+      </button>
+
+      <!-- Filter dropdown (desktop, md+) -->
+      <div
+        id="filter-dropdown"
+        class="hidden absolute right-0 top-full mt-1 z-40 w-72 rounded-lg bg-gray-800 ring-1 ring-white/10 shadow-xl"
+      >
+        <div class="p-4 space-y-5">
+          <!-- Status checkboxes -->
+          <div>
+            <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Status</p>
+            <div class="grid grid-cols-2 gap-y-1.5 gap-x-3">
+              {FILTER_STATUSES.map(({ value, label }) => (
+                <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    name="filter-status"
+                    value={value}
+                    class="h-3.5 w-3.5 rounded border-gray-600 bg-gray-700 text-indigo-500 focus:ring-0 focus:ring-offset-0 cursor-pointer"
+                  />
+                  {label}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <!-- Date period radios -->
+          <div>
+            <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Date Range</p>
+            <div class="space-y-1.5">
+              {[
+                { value: 'all', label: 'All time' },
+                { value: 'today', label: 'Today' },
+                { value: 'month', label: 'This month' },
+                { value: '3months', label: 'Past 3 months' },
+                { value: 'ytd', label: 'Year to date' },
+              ].map(({ value, label }) => (
+                <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer select-none">
+                  <input
+                    type="radio"
+                    name="filter-period"
+                    value={value}
+                    checked={value === 'all'}
+                    class="h-3.5 w-3.5 border-gray-600 bg-gray-700 text-indigo-500 focus:ring-0 focus:ring-offset-0 cursor-pointer"
+                  />
+                  {label}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <!-- Amount radios -->
+          <div>
+            <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Amount</p>
+            <div class="space-y-1.5">
+              {[
+                { value: 'any', label: 'Any amount' },
+                { value: 'lt50', label: 'Under $50' },
+                { value: '50to100', label: '$50 – $100' },
+                { value: 'gt100', label: 'Over $100' },
+              ].map(({ value, label }) => (
+                <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer select-none">
+                  <input
+                    type="radio"
+                    name="filter-amount"
+                    value={value}
+                    checked={value === 'any'}
+                    class="h-3.5 w-3.5 border-gray-600 bg-gray-700 text-indigo-500 focus:ring-0 focus:ring-offset-0 cursor-pointer"
+                  />
+                  {label}
+                </label>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <!-- Dropdown footer -->
+        <div class="flex items-center justify-between px-4 py-3 border-t border-white/10">
+          <button id="filter-clear" class="text-sm text-gray-400 hover:text-white transition-colors">Clear all</button>
+          <button id="filter-done" class="rounded-md bg-white/10 px-3 py-1.5 text-sm font-medium text-white hover:bg-white/20 transition-colors">Done</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Refresh -->
     <button
       id="refresh-btn"
       onclick="location.reload()"
-      class="inline-flex items-center gap-2 rounded-md bg-white/10 px-3 py-2 text-sm font-medium text-white hover:bg-white/20 transition-colors"
+      class="shrink-0 inline-flex items-center gap-2 rounded-md bg-white/10 px-3 py-2 text-sm font-medium text-white hover:bg-white/20 transition-colors"
     >
       <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
         <path d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" stroke-linecap="round" stroke-linejoin="round" />
       </svg>
       Refresh
     </button>
+  </div>
+
+  <!-- Filter modal backdrop (mobile only) -->
+  <div id="filter-modal-backdrop" class="fixed inset-0 bg-black/60 z-40 hidden md:hidden"></div>
+
+  <!-- Filter modal sheet (mobile only) -->
+  <div id="filter-modal" class="fixed inset-x-0 bottom-0 z-50 hidden md:hidden rounded-t-2xl bg-gray-800 ring-1 ring-white/10 shadow-2xl max-h-[85vh] overflow-y-auto">
+    <div class="p-5 space-y-5">
+      <!-- Handle bar -->
+      <div class="flex justify-center -mt-1 mb-1">
+        <div class="h-1 w-10 rounded-full bg-white/20"></div>
+      </div>
+
+      <!-- Sort By (mobile only) -->
+      <div>
+        <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Sort By</p>
+        <div class="space-y-1.5">
+          {[
+            { value: 'date:desc', label: 'Newest first' },
+            { value: 'date:asc', label: 'Oldest first' },
+            { value: 'customer:asc', label: 'Customer A → Z' },
+            { value: 'customer:desc', label: 'Customer Z → A' },
+            { value: 'status:asc', label: 'Status (earliest stage first)' },
+            { value: 'pickup_code:asc', label: 'Order # A → Z' },
+          ].map(({ value, label }) => (
+            <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer select-none">
+              <input
+                type="radio"
+                name="mobile-sort"
+                value={value}
+                checked={value === 'date:desc'}
+                class="h-3.5 w-3.5 border-gray-600 bg-gray-700 text-indigo-500 focus:ring-0 focus:ring-offset-0 cursor-pointer"
+              />
+              {label}
+            </label>
+          ))}
+        </div>
+      </div>
+
+      <!-- Status checkboxes (mirror of dropdown) -->
+      <div>
+        <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Status</p>
+        <div class="grid grid-cols-2 gap-y-1.5 gap-x-3">
+          {FILTER_STATUSES.map(({ value, label }) => (
+            <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                name="filter-status"
+                value={value}
+                class="h-3.5 w-3.5 rounded border-gray-600 bg-gray-700 text-indigo-500 focus:ring-0 focus:ring-offset-0 cursor-pointer"
+              />
+              {label}
+            </label>
+          ))}
+        </div>
+      </div>
+
+      <!-- Date period radios (mirror) -->
+      <div>
+        <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Date Range</p>
+        <div class="space-y-1.5">
+          {[
+            { value: 'all', label: 'All time' },
+            { value: 'today', label: 'Today' },
+            { value: 'month', label: 'This month' },
+            { value: '3months', label: 'Past 3 months' },
+            { value: 'ytd', label: 'Year to date' },
+          ].map(({ value, label }) => (
+            <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer select-none">
+              <input
+                type="radio"
+                name="filter-period"
+                value={value}
+                checked={value === 'all'}
+                class="h-3.5 w-3.5 border-gray-600 bg-gray-700 text-indigo-500 focus:ring-0 focus:ring-offset-0 cursor-pointer"
+              />
+              {label}
+            </label>
+          ))}
+        </div>
+      </div>
+
+      <!-- Amount radios (mirror) -->
+      <div>
+        <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Amount</p>
+        <div class="space-y-1.5">
+          {[
+            { value: 'any', label: 'Any amount' },
+            { value: 'lt50', label: 'Under $50' },
+            { value: '50to100', label: '$50 – $100' },
+            { value: 'gt100', label: 'Over $100' },
+          ].map(({ value, label }) => (
+            <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer select-none">
+              <input
+                type="radio"
+                name="filter-amount"
+                value={value}
+                checked={value === 'any'}
+                class="h-3.5 w-3.5 border-gray-600 bg-gray-700 text-indigo-500 focus:ring-0 focus:ring-offset-0 cursor-pointer"
+              />
+              {label}
+            </label>
+          ))}
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal footer -->
+    <div class="flex items-center justify-between px-5 py-4 border-t border-white/10 sticky bottom-0 bg-gray-800">
+      <button id="filter-modal-clear" class="text-sm text-gray-400 hover:text-white transition-colors">Clear all</button>
+      <button id="filter-modal-done" class="rounded-md bg-white/10 px-4 py-2 text-sm font-medium text-white hover:bg-white/20 transition-colors">Done</button>
+    </div>
   </div>
 
   {orders.length === 0 ? (
@@ -86,13 +320,18 @@ const NEXT_STATUS: Record<string, string[]> = {
   ) : (
     <>
       <!-- Mobile: Cards (< md) -->
-      <div class="space-y-4 md:hidden">
+      <div id="mobile-cards" class="space-y-4 md:hidden">
         {orders.map((order) => {
           const total = order.lineItems?.reduce((s, li) => s + li.totalAmount, 0) ?? 0;
           return (
             <div
               data-order-id={order._id}
-              class="rounded-lg bg-gray-800 p-4 ring-1 ring-white/10 cursor-pointer hover:bg-gray-700/80 transition-colors"
+              data-pickup-code={order.pickupCode}
+              data-customer={order.customerName}
+              data-status={order.status}
+              data-total={total.toString()}
+              data-created={order._creationTime.toString()}
+              class="mobile-order-card rounded-lg bg-gray-800 p-4 ring-1 ring-white/10 cursor-pointer hover:bg-gray-700/80 transition-colors"
               onclick={`openPanel('${order._id}')`}
             >
               <div class="flex items-center justify-between mb-2">
@@ -116,6 +355,11 @@ const NEXT_STATUS: Record<string, string[]> = {
             </div>
           );
         })}
+
+        <!-- Mobile empty state -->
+        <div id="mobile-empty-state" class="hidden rounded-lg bg-gray-800 p-12 ring-1 ring-white/10 text-center">
+          <p class="text-gray-500 text-sm">No orders match your search.</p>
+        </div>
       </div>
 
       <!-- Desktop: Table (md+) -->
@@ -123,12 +367,44 @@ const NEXT_STATUS: Record<string, string[]> = {
         <table class="min-w-full divide-y divide-white/10">
           <thead>
             <tr>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Order #</th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Customer</th>
+              <th
+                data-sort-col="pickup_code"
+                class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider cursor-pointer hover:text-white select-none transition-colors"
+              >
+                <span class="inline-flex items-center gap-1">
+                  Order #
+                  <span class="sort-icon text-gray-600 transition-colors" data-for="pickup_code">↕</span>
+                </span>
+              </th>
+              <th
+                data-sort-col="customer"
+                class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider cursor-pointer hover:text-white select-none transition-colors"
+              >
+                <span class="inline-flex items-center gap-1">
+                  Customer
+                  <span class="sort-icon text-gray-600 transition-colors" data-for="customer">↕</span>
+                </span>
+              </th>
               <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Description</th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Status</th>
+              <th
+                data-sort-col="status"
+                class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider cursor-pointer hover:text-white select-none transition-colors"
+              >
+                <span class="inline-flex items-center gap-1">
+                  Status
+                  <span class="sort-icon text-gray-600 transition-colors" data-for="status">↕</span>
+                </span>
+              </th>
               <th class="px-4 py-3 text-right text-xs font-medium text-gray-400 uppercase tracking-wider">Total</th>
-              <th class="px-4 py-3 text-right text-xs font-medium text-gray-400 uppercase tracking-wider">Date</th>
+              <th
+                data-sort-col="date"
+                class="px-4 py-3 text-right text-xs font-medium text-gray-400 uppercase tracking-wider cursor-pointer hover:text-white select-none transition-colors"
+              >
+                <span class="inline-flex items-center justify-end gap-1">
+                  Date
+                  <span class="sort-icon text-white transition-colors" data-for="date">↓</span>
+                </span>
+              </th>
             </tr>
           </thead>
           <tbody class="divide-y divide-white/5">
@@ -137,6 +413,11 @@ const NEXT_STATUS: Record<string, string[]> = {
               return (
                 <tr
                   data-order-id={order._id}
+                  data-pickup-code={order.pickupCode}
+                  data-customer={order.customerName}
+                  data-status={order.status}
+                  data-total={total.toString()}
+                  data-created={order._creationTime.toString()}
                   class="hover:bg-white/5 cursor-pointer transition-colors"
                   onclick={`openPanel('${order._id}')`}
                 >
@@ -156,6 +437,11 @@ const NEXT_STATUS: Record<string, string[]> = {
                 </tr>
               );
             })}
+
+            <!-- Table empty state -->
+            <tr id="table-empty-state" class="hidden">
+              <td colspan="6" class="px-4 py-12 text-center text-sm text-gray-500">No orders match your search.</td>
+            </tr>
           </tbody>
         </table>
       </div>
@@ -270,6 +556,22 @@ const NEXT_STATUS: Record<string, string[]> = {
                 </div>
               </div>
             )}
+
+            <!-- Drop-Off Photo -->
+            {order.dropOffPhotoUrl && (
+              <div>
+                <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Drop-Off Photo</p>
+                <a href={order.dropOffPhotoUrl} target="_blank" rel="noopener noreferrer">
+                  <img
+                    src={order.dropOffPhotoUrl}
+                    alt={`Drop-off photo for order #${order.pickupCode}`}
+                    class="w-full rounded-md object-cover ring-1 ring-white/10 hover:ring-white/30 transition"
+                    loading="lazy"
+                  />
+                  <p class="mt-1 text-xs text-gray-500">Click to open full size</p>
+                </a>
+              </div>
+            )}
           </div>
 
           <!-- Footer -->
@@ -287,6 +589,7 @@ const NEXT_STATUS: Record<string, string[]> = {
   })}
 </AdminLayout>
 
+<!-- Panel + status update logic (unchanged) -->
 <script>
   const NEXT_STATUS: Record<string, string[]> = {
     paid: ['dropped_off'],
@@ -362,17 +665,14 @@ const NEXT_STATUS: Record<string, string[]> = {
         throw new Error(data.error ?? 'Status update failed');
       }
 
-      // Update all status badges for this order
       const label = STATUS_LABELS[newStatus] ?? newStatus.replace(/_/g, ' ');
       const colorClass = STATUS_COLORS[newStatus] ?? 'bg-gray-500/20 text-gray-400 ring-1 ring-gray-500/30';
 
-      // List badges (table row or mobile card)
       document.querySelectorAll(`[data-order-id="${orderId}"] [data-status-badge]`).forEach((el) => {
         el.textContent = label;
         el.className = `inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${colorClass}`;
       });
 
-      // Panel badge
       const panelEl = document.querySelector(`[data-panel-id="${panelId}"]`);
       if (panelEl) {
         const panelBadge = panelEl.querySelector('[data-status-badge]');
@@ -381,7 +681,6 @@ const NEXT_STATUS: Record<string, string[]> = {
           panelBadge.className = `inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${colorClass}`;
         }
 
-        // Re-render status buttons
         const btnContainer = panelEl.querySelector('[data-status-buttons]');
         if (btnContainer) {
           const nextStatuses = NEXT_STATUS[newStatus] ?? [];
@@ -396,6 +695,10 @@ const NEXT_STATUS: Record<string, string[]> = {
             btnContainer.innerHTML = '<span class="text-sm text-gray-500">No further status updates available</span>';
           }
         }
+
+        // Update data-status on the row/card for re-sorting after status change
+        const row = document.querySelector(`tr[data-order-id="${orderId}"], .mobile-order-card[data-order-id="${orderId}"]`);
+        if (row instanceof HTMLElement) row.dataset.status = newStatus;
       }
     } catch (err) {
       console.error(err);
@@ -405,15 +708,246 @@ const NEXT_STATUS: Record<string, string[]> = {
     }
   }
 
-  // Escape key closes panel
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') closePanel();
   });
 
-  // Expose to inline onclick handlers
   window.openPanel = openPanel;
   window.closePanel = closePanel;
   window.handleStatusUpdate = handleStatusUpdate;
+</script>
+
+<!-- Search / Sort / Filter logic -->
+<script>
+  const STATUS_ORDER = [
+    'paid', 'dropped_off', 'picked_up', 'stringing', 'strung',
+    'ready_for_pickup', 'picked_up_by_customer', 'review', 'completed',
+  ];
+
+  type SortCol = 'pickup_code' | 'customer' | 'status' | 'date';
+  type SortDir = 'asc' | 'desc';
+
+  const state = {
+    search: '',
+    sortCol: 'date' as SortCol,
+    sortDir: 'desc' as SortDir,
+    filterStatuses: new Set<string>(),
+    filterPeriod: 'all' as 'all' | 'today' | 'month' | '3months' | 'ytd',
+    filterAmount: 'any' as 'any' | 'lt50' | '50to100' | 'gt100',
+  };
+
+  function applyAll() {
+    const now = Date.now();
+    const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+    const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+    const threeMonthsAgo = new Date(now); threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+    const ytdStart = new Date(new Date().getFullYear(), 0, 1);
+
+    function passes(el: HTMLElement): boolean {
+      const code = (el.dataset.pickupCode ?? '').toLowerCase();
+      const customer = (el.dataset.customer ?? '').toLowerCase();
+      const status = el.dataset.status ?? '';
+      const total = parseInt(el.dataset.total ?? '0', 10);
+      const created = parseInt(el.dataset.created ?? '0', 10);
+      const q = state.search.toLowerCase();
+
+      if (q && !code.includes(q) && !customer.includes(q)) return false;
+      if (state.filterStatuses.size > 0 && !state.filterStatuses.has(status)) return false;
+
+      if (state.filterPeriod === 'today' && created < todayStart.getTime()) return false;
+      if (state.filterPeriod === 'month' && created < monthStart.getTime()) return false;
+      if (state.filterPeriod === '3months' && created < threeMonthsAgo.getTime()) return false;
+      if (state.filterPeriod === 'ytd' && created < ytdStart.getTime()) return false;
+
+      if (state.filterAmount === 'lt50' && total >= 5000) return false;
+      if (state.filterAmount === '50to100' && (total < 5000 || total > 10000)) return false;
+      if (state.filterAmount === 'gt100' && total <= 10000) return false;
+
+      return true;
+    }
+
+    function compare(a: HTMLElement, b: HTMLElement): number {
+      let v = 0;
+      if (state.sortCol === 'pickup_code') {
+        v = (a.dataset.pickupCode ?? '').localeCompare(b.dataset.pickupCode ?? '');
+      } else if (state.sortCol === 'customer') {
+        v = (a.dataset.customer ?? '').toLowerCase().localeCompare((b.dataset.customer ?? '').toLowerCase());
+      } else if (state.sortCol === 'status') {
+        v = STATUS_ORDER.indexOf(a.dataset.status ?? '') - STATUS_ORDER.indexOf(b.dataset.status ?? '');
+      } else {
+        v = parseInt(a.dataset.created ?? '0') - parseInt(b.dataset.created ?? '0');
+      }
+      return state.sortDir === 'asc' ? v : -v;
+    }
+
+    const tbody = document.querySelector('tbody');
+    const mobileContainer = document.getElementById('mobile-cards');
+
+    const rows = Array.from(document.querySelectorAll<HTMLElement>('tbody tr[data-order-id]'));
+    const cards = Array.from(document.querySelectorAll<HTMLElement>('.mobile-order-card'));
+
+    [
+      { items: rows, container: tbody, emptyId: 'table-empty-state' },
+      { items: cards, container: mobileContainer, emptyId: 'mobile-empty-state' },
+    ].forEach(({ items, container, emptyId }) => {
+      if (!container) return;
+      const visible: HTMLElement[] = [];
+      const hidden: HTMLElement[] = [];
+      items.forEach(el => (passes(el) ? visible : hidden).push(el));
+
+      hidden.forEach(el => el.classList.add('hidden'));
+      visible.sort(compare).forEach(el => { el.classList.remove('hidden'); container.append(el); });
+
+      const emptyEl = document.getElementById(emptyId);
+      emptyEl?.classList.toggle('hidden', visible.length > 0);
+    });
+
+    // Filter badge count
+    let count = 0;
+    if (state.filterStatuses.size > 0) count++;
+    if (state.filterPeriod !== 'all') count++;
+    if (state.filterAmount !== 'any') count++;
+    const badge = document.getElementById('filter-badge');
+    if (badge) {
+      badge.textContent = String(count);
+      badge.classList.toggle('hidden', count === 0);
+    }
+
+    // Sort icons
+    document.querySelectorAll<HTMLElement>('.sort-icon').forEach(el => {
+      const col = el.dataset.for;
+      if (col === state.sortCol) {
+        el.textContent = state.sortDir === 'asc' ? '↑' : '↓';
+        el.classList.remove('text-gray-600');
+        el.classList.add('text-white');
+      } else {
+        el.textContent = '↕';
+        el.classList.remove('text-white');
+        el.classList.add('text-gray-600');
+      }
+    });
+  }
+
+  // ── Search ──────────────────────────────────────────────────────────────────
+  document.getElementById('search-input')?.addEventListener('input', (e) => {
+    state.search = (e.target as HTMLInputElement).value.trim();
+    applyAll();
+  });
+
+  // ── Column sort (desktop) ───────────────────────────────────────────────────
+  document.querySelectorAll<HTMLElement>('[data-sort-col]').forEach(th => {
+    th.addEventListener('click', () => {
+      const col = th.dataset.sortCol as SortCol;
+      if (state.sortCol === col) {
+        state.sortDir = state.sortDir === 'asc' ? 'desc' : 'asc';
+      } else {
+        state.sortCol = col;
+        state.sortDir = col === 'date' ? 'desc' : 'asc';
+      }
+      applyAll();
+    });
+  });
+
+  // ── Filter dropdown toggle (desktop) ───────────────────────────────────────
+  const filterBtn = document.getElementById('filter-btn');
+  const filterDropdown = document.getElementById('filter-dropdown');
+
+  filterBtn?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (window.innerWidth < 768) {
+      document.getElementById('filter-modal')?.classList.remove('hidden');
+      document.getElementById('filter-modal-backdrop')?.classList.remove('hidden');
+      document.body.style.overflow = 'hidden';
+    } else {
+      filterDropdown?.classList.toggle('hidden');
+    }
+  });
+
+  document.addEventListener('click', (e) => {
+    if (
+      filterDropdown && !filterDropdown.classList.contains('hidden') &&
+      !filterBtn?.contains(e.target as Node) &&
+      !filterDropdown.contains(e.target as Node)
+    ) {
+      filterDropdown.classList.add('hidden');
+    }
+  });
+
+  // ── Filter modal (mobile) ───────────────────────────────────────────────────
+  function closeFilterModal() {
+    document.getElementById('filter-modal')?.classList.add('hidden');
+    document.getElementById('filter-modal-backdrop')?.classList.add('hidden');
+    document.body.style.overflow = '';
+  }
+
+  document.getElementById('filter-modal-backdrop')?.addEventListener('click', closeFilterModal);
+  document.getElementById('filter-modal-done')?.addEventListener('click', closeFilterModal);
+  document.getElementById('filter-done')?.addEventListener('click', () => {
+    filterDropdown?.classList.add('hidden');
+  });
+
+  // ── Status checkboxes ───────────────────────────────────────────────────────
+  document.querySelectorAll<HTMLInputElement>('input[name="filter-status"]').forEach(cb => {
+    cb.addEventListener('change', () => {
+      if (cb.checked) state.filterStatuses.add(cb.value);
+      else state.filterStatuses.delete(cb.value);
+      // Sync the mirrored checkbox (desktop dropdown ↔ mobile modal)
+      document.querySelectorAll<HTMLInputElement>(`input[name="filter-status"][value="${cb.value}"]`).forEach(other => {
+        other.checked = cb.checked;
+      });
+      applyAll();
+    });
+  });
+
+  // ── Date period radios ──────────────────────────────────────────────────────
+  document.querySelectorAll<HTMLInputElement>('input[name="filter-period"]').forEach(r => {
+    r.addEventListener('change', () => {
+      state.filterPeriod = r.value as typeof state.filterPeriod;
+      // Sync mirrored radio
+      document.querySelectorAll<HTMLInputElement>(`input[name="filter-period"][value="${r.value}"]`).forEach(other => {
+        other.checked = true;
+      });
+      applyAll();
+    });
+  });
+
+  // ── Amount radios ───────────────────────────────────────────────────────────
+  document.querySelectorAll<HTMLInputElement>('input[name="filter-amount"]').forEach(r => {
+    r.addEventListener('change', () => {
+      state.filterAmount = r.value as typeof state.filterAmount;
+      document.querySelectorAll<HTMLInputElement>(`input[name="filter-amount"][value="${r.value}"]`).forEach(other => {
+        other.checked = true;
+      });
+      applyAll();
+    });
+  });
+
+  // ── Mobile sort radios ──────────────────────────────────────────────────────
+  document.querySelectorAll<HTMLInputElement>('input[name="mobile-sort"]').forEach(r => {
+    r.addEventListener('change', () => {
+      const [col, dir] = r.value.split(':') as [SortCol, SortDir];
+      state.sortCol = col;
+      state.sortDir = dir;
+      applyAll();
+    });
+  });
+
+  // ── Clear filters ───────────────────────────────────────────────────────────
+  function clearFilters() {
+    state.filterStatuses.clear();
+    state.filterPeriod = 'all';
+    state.filterAmount = 'any';
+    document.querySelectorAll<HTMLInputElement>('input[name="filter-status"]').forEach(cb => { cb.checked = false; });
+    document.querySelectorAll<HTMLInputElement>('input[name="filter-period"]').forEach(r => { r.checked = r.value === 'all'; });
+    document.querySelectorAll<HTMLInputElement>('input[name="filter-amount"]').forEach(r => { r.checked = r.value === 'any'; });
+    applyAll();
+  }
+
+  document.getElementById('filter-clear')?.addEventListener('click', clearFilters);
+  document.getElementById('filter-modal-clear')?.addEventListener('click', clearFilters);
+
+  // Initial render to set sort icon state
+  applyAll();
 </script>
 
 <script>

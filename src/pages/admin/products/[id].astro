@@ -1,5 +1,6 @@
 ---
 import AdminLayout from '../../../layouts/AdminLayout.astro';
+import ProductImageUploader from '../../../components/admin/ProductImageUploader';
 import { ConvexHttpClient } from 'convex/browser';
 import { api } from '../../../../convex/_generated/api';
 import type { Id } from '../../../../convex/_generated/dataModel';
@@ -28,6 +29,7 @@ const relatedOrders = allOrders.filter((o) =>
 const CATEGORY_LABELS: Record<string, string> = {
   head: 'Heads', shaft: 'Shafts', mesh: 'Mesh',
   strings: 'Strings', service: 'Services', upsell: 'Upsells',
+  dye: 'Dye', 
 };
 const CATEGORY_COLORS: Record<string, string> = {
   head: 'bg-blue-500/20 text-blue-300',
@@ -36,6 +38,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   strings: 'bg-amber-500/20 text-amber-300',
   service: 'bg-indigo-500/20 text-indigo-300',
   upsell: 'bg-pink-500/20 text-pink-300',
+  dye: 'bg-rose-500/20 text-rose-300',
 };
 const STATUS_COLORS: Record<string, string> = {
   paid: 'bg-blue-500/20 text-blue-300 ring-1 ring-blue-500/30',
@@ -108,12 +111,19 @@ function statusColor(s: string) { return STATUS_COLORS[s] ?? 'bg-gray-500/20 tex
         </div>
 
         <!-- Actions -->
-        <div class="flex gap-2 shrink-0">
+        <div class="flex flex-wrap gap-2 shrink-0">
           <button
             onclick="document.getElementById('dialog-edit').showModal()"
             class="rounded-md bg-white/10 px-4 py-2 text-sm font-medium text-white hover:bg-white/20 transition-colors"
           >
             Edit
+          </button>
+          <button
+            data-duplicate-btn
+            onclick={`duplicateProduct('${product._id}')`}
+            class="rounded-md bg-white/10 px-4 py-2 text-sm font-medium text-white hover:bg-white/20 transition-colors disabled:opacity-50"
+          >
+            Duplicate
           </button>
           <button
             onclick={`confirmArchive('${product._id}', '${product.stripeProductId ?? ''}', ${JSON.stringify(product.name)})`}
@@ -258,7 +268,7 @@ function statusColor(s: string) { return STATUS_COLORS[s] ?? 'bg-gray-500/20 tex
           id="edit-category"
           class="w-full rounded-md bg-gray-900 border border-white/10 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-white/20"
         >
-          {(['head', 'shaft', 'mesh', 'strings', 'service', 'upsell'] as const).map((cat) => (
+        {(['head', 'shaft', 'mesh', 'strings', 'dye', 'service', 'upsell'] as const).map((cat) => (
             <option value={cat} selected={product.category === cat}>{CATEGORY_LABELS[cat]}</option>
           ))}
         </select>
@@ -270,6 +280,7 @@ function statusColor(s: string) { return STATUS_COLORS[s] ?? 'bg-gray-500/20 tex
           class="w-full rounded-md bg-gray-900 border border-white/10 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-white/20"
         >
           <option value="" selected={!product.playerType}>— None —</option>
+          <option value="all" selected={product.playerType === 'all'}>All</option>
           <option value="boys" selected={product.playerType === 'boys'}>Boys</option>
           <option value="girls" selected={product.playerType === 'girls'}>Girls</option>
           <option value="goalies" selected={product.playerType === 'goalies'}>Goalies</option>
@@ -294,6 +305,14 @@ function statusColor(s: string) { return STATUS_COLORS[s] ?? 'bg-gray-500/20 tex
           <input id="edit-showInBuilder" type="checkbox" checked={product.showInBuilder === true} class="rounded border-white/20 bg-gray-900 text-indigo-600" />
           Show in Builder
         </label>
+      </div>
+      <div class="pt-1">
+        <ProductImageUploader
+          client:load
+          hiddenInputId="edit-images-json"
+          initialImages={product.images ?? []}
+        />
+        <input type="hidden" id="edit-images-json" value={JSON.stringify(product.images ?? [])} />
       </div>
     </div>
     <div class="px-6 py-4 border-t border-white/10 flex justify-end gap-3">
@@ -325,6 +344,10 @@ function statusColor(s: string) { return STATUS_COLORS[s] ?? 'bg-gray-500/20 tex
     const stockEl = document.getElementById('edit-stock');
     const shopEl = document.getElementById('edit-showInShop');
     const builderEl = document.getElementById('edit-showInBuilder');
+    const imagesEl = document.getElementById('edit-images-json');
+
+    let images;
+    try { images = JSON.parse(imagesEl?.value ?? '[]'); } catch { images = undefined; }
 
     btn.disabled = true;
     const original = btn.textContent;
@@ -344,6 +367,7 @@ function statusColor(s: string) { return STATUS_COLORS[s] ?? 'bg-gray-500/20 tex
           stock: stockEl ? Number(stockEl.value) : undefined,
           showInShop: shopEl?.checked ?? false,
           showInBuilder: builderEl?.checked ?? false,
+          images,
         }),
       });
 
@@ -380,6 +404,30 @@ function statusColor(s: string) { return STATUS_COLORS[s] ?? 'bg-gray-500/20 tex
     }
   }
 
+  async function duplicateProduct(inventoryId) {
+    if (!confirm('Duplicate this product? A new product will be created in Stripe.')) return;
+    const btn = document.querySelector('[data-duplicate-btn]');
+    if (btn) { btn.disabled = true; btn.textContent = 'Duplicating…'; }
+
+    try {
+      const res = await fetch('/api/admin/inventory/duplicate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ inventoryId }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Duplicate failed');
+
+      window.location.href = `/admin/products/${data.newInventoryId}`;
+    } catch (err) {
+      console.error(err);
+      if (btn) { btn.disabled = false; btn.textContent = 'Duplicate'; }
+      alert('Duplicate failed: ' + (err.message || 'Unknown error'));
+    }
+  }
+
   window.submitEdit = submitEdit;
   window.confirmArchive = confirmArchive;
+  window.duplicateProduct = duplicateProduct;
 </script>

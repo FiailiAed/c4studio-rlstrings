@@ -3,9 +3,6 @@ import { ConvexHttpClient } from 'convex/browser';
 import { api } from '../../../../../convex/_generated/api';
 import type { Id } from '../../../../../convex/_generated/dataModel';
 
-type Category = 'head' | 'shaft' | 'mesh' | 'strings' | 'service' | 'upsell';
-type PlayerType = 'boys' | 'girls' | 'goalies';
-
 export const POST: APIRoute = async ({ request, locals }) => {
   try {
     const auth = locals.auth();
@@ -18,32 +15,13 @@ export const POST: APIRoute = async ({ request, locals }) => {
     }
 
     const body = await request.json();
-    const {
-      inventoryId,
-      stripeProductId,
-      name,
-      description,
-      category,
-      showInShop,
-      showInBuilder,
-      playerType,
-      stock,
-      images,
-    } = body as {
+    const { inventoryId, adjustment } = body as {
       inventoryId: string;
-      stripeProductId: string;
-      name?: string;
-      description?: string;
-      category?: string;
-      showInShop?: boolean;
-      showInBuilder?: boolean;
-      playerType?: string;
-      stock?: number;
-      images?: string[];
+      adjustment: number;
     };
 
-    if (!inventoryId || !stripeProductId) {
-      return new Response(JSON.stringify({ error: 'Missing inventoryId or stripeProductId' }), {
+    if (!inventoryId || adjustment === undefined) {
+      return new Response(JSON.stringify({ error: 'Missing inventoryId or adjustment' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' },
       });
@@ -53,25 +31,17 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const token = await auth.getToken({ template: 'convex' });
     if (token) client.setAuth(token);
 
-    await client.action(api.inventory.updateStripeProduct, {
+    const result = await client.mutation(api.inventory.updateStock, {
       inventoryId: inventoryId as Id<'inventory'>,
-      stripeProductId,
-      name,
-      description,
-      category: category as Category | undefined,
-      showInShop,
-      showInBuilder,
-      playerType: playerType as PlayerType | undefined,
-      stock,
-      images,
+      adjustment,
     });
 
-    return new Response(JSON.stringify({ success: true }), {
+    return new Response(JSON.stringify({ success: true, newStock: result.newStock }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error('Inventory update error:', error);
+    console.error('Stock update error:', error);
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : 'Internal server error' }),
       { status: 500, headers: { 'Content-Type': 'application/json' } },

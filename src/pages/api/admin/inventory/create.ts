@@ -29,6 +29,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       showInBuilder,
       playerType,
       stock,
+      images,
     } = body as {
       name: string;
       description?: string;
@@ -38,6 +39,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       showInBuilder?: boolean;
       playerType?: string;
       stock: number;
+      images?: string[];
     };
 
     if (!name || unitAmount === undefined || !category || stock === undefined) {
@@ -60,6 +62,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       showInBuilder,
       playerType: playerType as CreateArgs['playerType'],
       stock,
+      images,
     });
 
     return new Response(JSON.stringify({ success: true }), {

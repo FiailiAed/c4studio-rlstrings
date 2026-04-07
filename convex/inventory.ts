@@ -9,12 +9,14 @@ const CATEGORY_VALUES = v.union(
   v.literal("mesh"),
   v.literal("strings"),
   v.literal("service"),
-  v.literal("upsell")
+  v.literal("upsell"),
+  v.literal("dye"),
+  v.literal("rush")
 );
 
-type Category = "head" | "shaft" | "mesh" | "strings" | "service" | "upsell";
+type Category = "head" | "shaft" | "mesh" | "strings" | "service" | "upsell" | "dye" | "rush";
 
-const VALID_CATEGORIES: Category[] = ["head", "shaft", "mesh", "strings", "service", "upsell"];
+const VALID_CATEGORIES: Category[] = ["head", "shaft", "mesh", "strings", "service", "upsell", "dye", "rush"];
 
 function toCategory(value: string | undefined): Category {
   if (value && VALID_CATEGORIES.includes(value as Category)) {
@@ -159,7 +161,7 @@ export const upsertFromStripe = internalMutation({
     unitAmount: v.optional(v.number()),
     currency: v.optional(v.string()),
     priceType: v.optional(v.union(v.literal("one_time"), v.literal("recurring"))),
-    playerType: v.optional(v.union(v.literal("boys"), v.literal("girls"), v.literal("goalies"))),
+    playerType: v.optional(v.union(v.literal("boys"), v.literal("girls"), v.literal("goalies"), v.literal("all"))),
   },
   handler: async (ctx, args) => {
     const { existingId, priceId, ...fields } = args;
@@ -227,7 +229,7 @@ export const syncFromStripe = action({
       const showInShop = product.metadata?.shop === "true";
       const showInBuilder = product.metadata?.builder === "true";
       const rawPlayerType = product.metadata?.playerType;
-      const playerType = (rawPlayerType === "boys" || rawPlayerType === "girls" || rawPlayerType === "goalies") ? rawPlayerType : undefined;
+      const playerType = (rawPlayerType === "boys" || rawPlayerType === "girls" || rawPlayerType === "goalies" || rawPlayerType === "all") ? rawPlayerType : undefined;
 
       const priceData = typeof priceObj === "object" && priceObj !== null ? priceObj : undefined;
       const priceType: "one_time" | "recurring" = priceData?.type === "recurring" ? "recurring" : "one_time";
@@ -327,8 +329,10 @@ export const updateStripeProduct = action({
       v.literal("boys"),
       v.literal("girls"),
       v.literal("goalies"),
+      v.literal("all"),
     )),
     stock: v.optional(v.number()),
+    images: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -347,6 +351,7 @@ export const updateStripeProduct = action({
     if (args.showInShop !== undefined) params["metadata[shop]"] = String(args.showInShop);
     if (args.showInBuilder !== undefined) params["metadata[builder]"] = String(args.showInBuilder);
     if (args.playerType !== undefined) params["metadata[playerType]"] = args.playerType;
+    if (args.images !== undefined) args.images.forEach((url, i) => { params[`images[${i}]`] = url; });
 
     const res = await fetch(`https://api.stripe.com/v1/products/${args.stripeProductId}`, {
       method: "POST",
@@ -370,7 +375,7 @@ export const updateStripeProduct = action({
       showInShop: args.showInShop ?? existing.showInShop,
       showInBuilder: args.showInBuilder ?? existing.showInBuilder,
       description: args.description ?? existing.description,
-      images: existing.images,
+      images: args.images ?? existing.images,
       stripeProductId: args.stripeProductId,
       unitAmount: existing.unitAmount,
       currency: existing.currency,
@@ -431,8 +436,10 @@ export const createStripeProduct = action({
       v.literal("boys"),
       v.literal("girls"),
       v.literal("goalies"),
+      v.literal("all"),
     )),
     stock: v.number(),
+    images: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -450,6 +457,7 @@ export const createStripeProduct = action({
     };
     if (args.description) productParams["description"] = args.description;
     if (args.playerType) productParams["metadata[playerType]"] = args.playerType;
+    if (args.images) args.images.forEach((url, i) => { productParams[`images[${i}]`] = url; });
 
     const productRes = await fetch("https://api.stripe.com/v1/products", {
       method: "POST",
@@ -497,6 +505,7 @@ export const createStripeProduct = action({
       showInShop: args.showInShop,
       showInBuilder: args.showInBuilder,
       description: args.description,
+      images: args.images,
       stripeProductId: newProduct.id,
       unitAmount: args.unitAmount,
       currency: "usd",
@@ -514,6 +523,93 @@ export const createStripeProduct = action({
         });
       }
     }
+  },
+});
+
+// Duplicate a Stripe product + price and sync a new copy into Convex
+export const duplicateStripeProduct = action({
+  args: {
+    inventoryId: v.id("inventory"),
+  },
+  handler: async (ctx, args): Promise<{ newInventoryId: string }> => {
+    const identity = await ctx.auth.getUserIdentity();
+    requireAdmin(identity);
+
+    const stripeKey = process.env.STRIPE_SECRET_KEY;
+    if (!stripeKey) throw new Error("STRIPE_SECRET_KEY not configured");
+
+    const source = await ctx.runQuery(api.inventory.getItemById, { id: args.inventoryId });
+    if (!source) throw new Error("Source inventory item not found");
+
+    const newName = `Copy of ${source.name}`;
+
+    // Create new Stripe product with same metadata + images
+    const productParams: Record<string, string> = {
+      name: newName,
+      "metadata[category]": source.category,
+      "metadata[shop]": String(source.showInShop ?? false),
+      "metadata[builder]": String(source.showInBuilder ?? false),
+    };
+    if (source.description) productParams["description"] = source.description;
+    if (source.playerType) productParams["metadata[playerType]"] = source.playerType;
+    if (source.images) source.images.forEach((url, i) => { productParams[`images[${i}]`] = url; });
+
+    const productRes = await fetch("https://api.stripe.com/v1/products", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${stripeKey}`, "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams(productParams),
+    });
+    if (!productRes.ok) {
+      const text = await productRes.text();
+      throw new Error(`Stripe product creation error: ${productRes.status} ${text}`);
+    }
+    const newStripeProduct = await productRes.json() as { id: string };
+
+    // Create new price with same unit_amount + currency
+    const priceRes = await fetch("https://api.stripe.com/v1/prices", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${stripeKey}`, "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        product: newStripeProduct.id,
+        unit_amount: String(source.unitAmount ?? 0),
+        currency: source.currency ?? "usd",
+        billing_scheme: "per_unit",
+      }),
+    });
+    if (!priceRes.ok) {
+      const text = await priceRes.text();
+      throw new Error(`Stripe price creation error: ${priceRes.status} ${text}`);
+    }
+    const newPrice = await priceRes.json() as { id: string };
+
+    // Sync into Convex
+    await ctx.runMutation(internal.inventory.upsertFromStripe, {
+      priceId: newPrice.id,
+      name: newName,
+      category: source.category,
+      showInShop: source.showInShop,
+      showInBuilder: source.showInBuilder,
+      description: source.description,
+      images: source.images,
+      stripeProductId: newStripeProduct.id,
+      unitAmount: source.unitAmount,
+      currency: source.currency,
+      priceType: source.priceType ?? "one_time",
+      playerType: source.playerType,
+    });
+
+    // Set initial stock (upsertFromStripe inserts with stock: 0)
+    const inserted = await ctx.runQuery(internal.inventory.getByPriceId, { priceId: newPrice.id });
+    if (!inserted) throw new Error("Failed to find newly created inventory item");
+
+    if (source.stock > 0) {
+      await ctx.runMutation(internal.inventory.updateStockInternal, {
+        id: inserted._id,
+        stock: source.stock,
+      });
+    }
+
+    return { newInventoryId: inserted._id };
   },
 });
 

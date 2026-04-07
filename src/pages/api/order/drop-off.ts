@@ -13,12 +13,19 @@ export const POST: APIRoute = async ({ request, redirect }) => {
       return redirect(`/order/${pickupCode}?error=server`);
     }
 
+    const rawPhotoUrl = (data.get('dropOffPhotoUrl') as string | null) || undefined;
+    // Restrict to Uploadthing CDN to prevent arbitrary URL storage
+    const dropOffPhotoUrl =
+      rawPhotoUrl && /^https:\/\/(utfs\.io|uploadthing\.com|[a-z0-9-]+\.ufs\.sh)\//.test(rawPhotoUrl)
+        ? rawPhotoUrl
+        : undefined;
+
     const client = new ConvexHttpClient(import.meta.env.PUBLIC_CONVEX_URL);
-    await client.mutation(api.orders.confirmDropOff, { pickupCode, confirmCode });
+    await client.mutation(api.orders.confirmDropOff, { pickupCode, confirmCode, dropOffPhotoUrl });
 
     return redirect(`/order/${pickupCode}?success=dropoff`);
-  } catch (err: any) {
-    const msg: string = err?.message ?? '';
+  } catch (err: unknown) {
+    const msg: string = err instanceof Error ? err.message : '';
     if (msg.includes('already been dropped off')) {
       return redirect(`/order/${pickupCode}?error=already-done`);
     }

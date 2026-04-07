@@ -27,6 +27,7 @@ export default defineSchema({
     orderType: v.union(v.literal("service"), v.literal("product")),
     itemDescription: v.string(),   // e.g. "Signature Mesh Re-string"
     pickupCode: v.string(),        // Simple 4-digit code for the hand-off
+    dropOffPhotoUrl: v.optional(v.string()),
     droppedOffAt: v.optional(v.number()),
     pickedUpAt: v.optional(v.number()),
     stringingAt: v.optional(v.number()),
@@ -51,7 +52,9 @@ export default defineSchema({
         v.literal("mesh"),
         v.literal("strings"),
         v.literal("service"),
-        v.literal("upsell")
+        v.literal("upsell"),
+        v.literal("dye"),
+        v.literal("rush")
       )
     }))),
   }).index("by_email", ["email"]).index("by_status", ["status"]).index("by_pickup_code", ["pickupCode"]),
@@ -66,7 +69,9 @@ export default defineSchema({
       v.literal("mesh"),
       v.literal("strings"),
       v.literal("service"),
-      v.literal("upsell")
+      v.literal("upsell"),
+      v.literal("dye"),
+      v.literal("rush")
     ),
     showInShop: v.optional(v.boolean()),
     showInBuilder: v.optional(v.boolean()),
@@ -76,6 +81,6 @@ export default defineSchema({
     unitAmount: v.optional(v.number()),
     currency: v.optional(v.string()),
     priceType: v.optional(v.union(v.literal("one_time"), v.literal("recurring"))),
-    playerType: v.optional(v.union(v.literal("boys"), v.literal("girls"), v.literal("goalies"))),
+    playerType: v.optional(v.union(v.literal("boys"), v.literal("girls"), v.literal("goalies"), v.literal("all"))),
   }).index("by_priceId", ["priceId"]),
 });

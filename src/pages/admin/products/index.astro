@@ -10,7 +10,7 @@ if (!userId) return Astro.redirect('/admin/sign-in');
 const client = new ConvexHttpClient(import.meta.env.PUBLIC_CONVEX_URL);
 const items = await client.query(api.inventory.listInventory);
 
-const CATEGORIES = ['head', 'shaft', 'mesh', 'strings', 'service', 'upsell'] as const;
+const CATEGORIES = ['head', 'shaft', 'mesh', 'strings', 'dye', 'service', 'upsell'] as const;
 const CATEGORY_LABELS: Record<string, string> = {
   head: 'Heads',
   shaft: 'Shafts',
@@ -18,6 +18,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   strings: 'Strings',
   service: 'Services',
   upsell: 'Upsells',
+  dye: 'Dye',
 };
 const CATEGORY_COLORS: Record<string, string> = {
   head: 'bg-blue-500/20 text-blue-300',
@@ -26,6 +27,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   strings: 'bg-amber-500/20 text-amber-300',
   service: 'bg-indigo-500/20 text-indigo-300',
   upsell: 'bg-pink-500/20 text-pink-300',
+  dye: 'bg-rose-500/20 text-rose-300',
 };
 
 function formatCents(cents?: number | null) {
@@ -60,15 +62,15 @@ const grouped = Object.fromEntries(
       Sync from Stripe
     </button>
 
-    <button
-      onclick="document.getElementById('dialog-new').showModal()"
+    <a
+      href="/admin/products/new"
       class="inline-flex items-center gap-2 rounded-md bg-white/10 px-3 py-2 text-sm font-medium text-white hover:bg-white/20 transition-colors"
     >
       <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
         <path d="M12 4.5v15m7.5-7.5h-15" stroke-linecap="round" stroke-linejoin="round" />
       </svg>
       New Product
-    </button>
+    </a>
 
     <button
       id="refresh-btn"
@@ -80,6 +82,19 @@ const grouped = Object.fromEntries(
       </svg>
       Refresh
     </button>
+  </div>
+
+  <!-- Search bar -->
+  <div class="mb-4 relative">
+    <svg class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+      <path d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" stroke-linecap="round" stroke-linejoin="round" />
+    </svg>
+    <input
+      id="product-search"
+      type="search"
+      placeholder="Search products…"
+      class="w-full rounded-md bg-white/10 pl-9 pr-4 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-white/30 [&::-webkit-search-cancel-button]:hidden"
+    />
   </div>
 
   <!-- Category Tabs -->
@@ -102,89 +117,177 @@ const grouped = Object.fromEntries(
     ))}
   </div>
 
-  <!-- All items section (shown when tab = all) -->
-  <div data-cat-section="all" class={activeCat !== 'all' ? 'hidden' : ''}>
-    {items.length === 0 ? (
-      <div class="rounded-lg bg-gray-800 p-12 ring-1 ring-white/10 text-center">
-        <p class="text-gray-500 text-sm">No inventory items. Sync from Stripe or add a product.</p>
-      </div>
-    ) : (
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {items.map((item) => (
-          <div
-            class="rounded-lg bg-gray-800 p-4 ring-1 ring-white/10 hover:bg-gray-700/80 cursor-pointer transition-colors"
-            onclick={`openProductPanel('${item._id}')`}
-          >
-            <div class="flex items-start justify-between mb-2">
-              <p class="text-sm font-medium text-white leading-tight">{item.name}</p>
-              <span class={`ml-2 shrink-0 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium capitalize ${CATEGORY_COLORS[item.category] ?? 'bg-gray-500/20 text-gray-400'}`}>
-                {item.category}
-              </span>
-            </div>
-            <div class="flex items-center gap-2 text-sm text-gray-400 mb-2">
-              <span>{formatCents(item.unitAmount)}</span>
-              <span class="text-gray-600">·</span>
-              <span class={item.stock <= 0 ? 'text-red-400' : 'text-gray-400'}>{item.stock} in stock</span>
-            </div>
-            <div class="flex flex-wrap gap-1.5">
-              {item.showInShop && (
-                <span class="inline-flex items-center rounded-full bg-green-500/15 px-2 py-0.5 text-xs text-green-400">Shop</span>
-              )}
-              {item.showInBuilder && (
-                <span class="inline-flex items-center rounded-full bg-blue-500/15 px-2 py-0.5 text-xs text-blue-400">Builder</span>
-              )}
-              {item.playerType && (
-                <span class="inline-flex items-center rounded-full bg-white/10 px-2 py-0.5 text-xs text-gray-400 capitalize">{item.playerType}</span>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
-    )}
-  </div>
+  <!-- Unified products view — filtered by JS -->
+  <div id="products-content">
 
-  <!-- Per-category sections -->
-  {CATEGORIES.map((cat) => (
-    <div data-cat-section={cat} class={activeCat !== cat ? 'hidden' : ''}>
-      {(grouped[cat]?.length ?? 0) === 0 ? (
-        <div class="rounded-lg bg-gray-800 p-12 ring-1 ring-white/10 text-center">
-          <p class="text-gray-500 text-sm">No {CATEGORY_LABELS[cat]} items.</p>
+    <!-- Mobile card list (< md) -->
+    <div id="product-mobile-list" class="space-y-3 md:hidden">
+      {items.map((item) => (
+        <div
+          class="product-mobile-card rounded-lg bg-gray-800 p-4 ring-1 ring-white/10 hover:bg-gray-700/80 cursor-pointer transition-colors"
+          data-product-id={item._id}
+          data-name={item.name.toLowerCase()}
+          data-category={item.category}
+          data-price={item.unitAmount?.toString() ?? '0'}
+          data-stock={item.stock.toString()}
+          onclick={`openProductPanel('${item._id}')`}
+        >
+          <div class="flex items-start justify-between mb-1.5">
+            <p class="text-sm font-medium text-white leading-tight pr-2">{item.name}</p>
+            <span class={`shrink-0 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium capitalize ${CATEGORY_COLORS[item.category] ?? 'bg-gray-500/20 text-gray-400'}`}>
+              {item.category}
+            </span>
+          </div>
+          <div class="flex items-center gap-2 text-sm mb-1.5">
+            <span class="text-gray-300">{formatCents(item.unitAmount)}</span>
+            <span class="text-gray-600">·</span>
+            <span class={item.stock <= 0 ? 'text-red-400 font-medium' : 'text-gray-400'}>
+              {item.stock <= 0 ? 'Out of stock' : item.stock + ' in stock'}
+            </span>
+          </div>
+          <div class="flex flex-wrap gap-1.5">
+            {item.showInShop && (
+              <span class="inline-flex items-center rounded-full bg-green-500/15 px-2 py-0.5 text-xs text-green-400">Shop</span>
+            )}
+            {item.showInBuilder && (
+              <span class="inline-flex items-center rounded-full bg-blue-500/15 px-2 py-0.5 text-xs text-blue-400">Builder</span>
+            )}
+            {item.playerType && (
+              <span class="inline-flex items-center rounded-full bg-white/10 px-2 py-0.5 text-xs text-gray-400 capitalize">{item.playerType}</span>
+            )}
+          </div>
         </div>
-      ) : (
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {grouped[cat].map((item) => (
-            <div
-              class="rounded-lg bg-gray-800 p-4 ring-1 ring-white/10 hover:bg-gray-700/80 cursor-pointer transition-colors"
+      ))}
+      <div id="product-mobile-empty" class="hidden rounded-lg bg-gray-800 p-12 ring-1 ring-white/10 text-center">
+        <p class="text-gray-500 text-sm">No products match your search.</p>
+      </div>
+    </div>
+
+    <!-- Desktop table (md+) -->
+    <div class="hidden md:block rounded-lg bg-gray-800 ring-1 ring-white/10 overflow-hidden">
+      <table class="min-w-full divide-y divide-white/10">
+        <thead>
+          <tr>
+            <th
+              data-sort-col="name"
+              class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider cursor-pointer hover:text-white select-none transition-colors"
+            >
+              <span class="inline-flex items-center gap-1">
+                Name
+                <span class="sort-icon text-gray-600" data-for="name">↕</span>
+              </span>
+            </th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Category</th>
+            <th
+              data-sort-col="price"
+              class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider cursor-pointer hover:text-white select-none transition-colors"
+            >
+              <span class="inline-flex items-center gap-1">
+                Price
+                <span class="sort-icon text-gray-600" data-for="price">↕</span>
+              </span>
+            </th>
+            <th
+              data-sort-col="stock"
+              class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider cursor-pointer hover:text-white select-none transition-colors"
+            >
+              <span class="inline-flex items-center gap-1">
+                Stock
+                <span class="sort-icon text-gray-600" data-for="stock">↕</span>
+              </span>
+            </th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Visibility</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Player Type</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-white/5" id="product-tbody">
+          {items.map((item) => (
+            <tr
+              class="product-row hover:bg-white/5 cursor-pointer transition-colors"
+              data-product-id={item._id}
+              data-name={item.name.toLowerCase()}
+              data-category={item.category}
+              data-price={item.unitAmount?.toString() ?? '0'}
+              data-stock={item.stock.toString()}
+              data-stripe-id={item.stripeProductId ?? ''}
               onclick={`openProductPanel('${item._id}')`}
             >
-              <div class="flex items-start justify-between mb-2">
-                <p class="text-sm font-medium text-white leading-tight">{item.name}</p>
-                <span class={`ml-2 shrink-0 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium capitalize ${CATEGORY_COLORS[item.category] ?? 'bg-gray-500/20 text-gray-400'}`}>
+              <td class="px-4 py-3 text-sm font-medium text-white">
+                <span class="truncate block max-w-xs">{item.name}</span>
+              </td>
+              <td class="px-4 py-3">
+                <span class={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium capitalize ${CATEGORY_COLORS[item.category] ?? 'bg-gray-500/20 text-gray-400'}`}>
                   {item.category}
                 </span>
-              </div>
-              <div class="flex items-center gap-2 text-sm text-gray-400 mb-2">
-                <span>{formatCents(item.unitAmount)}</span>
-                <span class="text-gray-600">·</span>
-                <span class={item.stock <= 0 ? 'text-red-400' : 'text-gray-400'}>{item.stock} in stock</span>
-              </div>
-              <div class="flex flex-wrap gap-1.5">
-                {item.showInShop && (
-                  <span class="inline-flex items-center rounded-full bg-green-500/15 px-2 py-0.5 text-xs text-green-400">Shop</span>
-                )}
-                {item.showInBuilder && (
-                  <span class="inline-flex items-center rounded-full bg-blue-500/15 px-2 py-0.5 text-xs text-blue-400">Builder</span>
-                )}
-                {item.playerType && (
-                  <span class="inline-flex items-center rounded-full bg-white/10 px-2 py-0.5 text-xs text-gray-400 capitalize">{item.playerType}</span>
-                )}
-              </div>
-            </div>
+              </td>
+              <td class="px-4 py-3 text-sm text-gray-300 whitespace-nowrap">{formatCents(item.unitAmount)}</td>
+              <td
+                class="px-4 py-3 text-sm whitespace-nowrap"
+                data-stock-cell
+                data-id={item._id}
+                data-stripe-id={item.stripeProductId ?? ''}
+                onclick="event.stopPropagation()"
+              >
+                <div class="flex items-center gap-1">
+                  <button
+                    data-stock-dec
+                    data-id={item._id}
+                    class="w-5 h-5 rounded flex items-center justify-center text-gray-500 hover:text-white hover:bg-white/10 transition-colors leading-none select-none"
+                    onclick="event.stopPropagation()"
+                  >−</button>
+                  <span
+                    data-stock-display
+                    data-id={item._id}
+                    class={`w-8 text-center cursor-text tabular-nums select-none ${item.stock <= 0 ? 'text-red-400 font-medium' : 'text-gray-300'}`}
+                    title="Click to set stock"
+                  >{item.stock}</span>
+                  <input
+                    data-stock-input
+                    data-id={item._id}
+                    type="number"
+                    min="0"
+                    value={item.stock}
+                    class="hidden w-14 rounded bg-gray-900 border border-white/20 px-1.5 py-0.5 text-sm text-white text-center [appearance:textfield]"
+                  />
+                  <button
+                    data-stock-inc
+                    data-id={item._id}
+                    class="w-5 h-5 rounded flex items-center justify-center text-gray-500 hover:text-white hover:bg-white/10 transition-colors leading-none select-none"
+                    onclick="event.stopPropagation()"
+                  >+</button>
+                </div>
+              </td>
+              <td class="px-4 py-3">
+                <div class="flex flex-wrap gap-1">
+                  {item.showInShop && (
+                    <span class="inline-flex items-center rounded-full bg-green-500/15 px-2 py-0.5 text-xs text-green-400">Shop</span>
+                  )}
+                  {item.showInBuilder && (
+                    <span class="inline-flex items-center rounded-full bg-blue-500/15 px-2 py-0.5 text-xs text-blue-400">Builder</span>
+                  )}
+                  {!item.showInShop && !item.showInBuilder && (
+                    <span class="inline-flex items-center rounded-full bg-gray-500/15 px-2 py-0.5 text-xs text-gray-500">Hidden</span>
+                  )}
+                </div>
+              </td>
+              <td class="px-4 py-3">
+                {item.playerType
+                  ? <span class="inline-flex items-center rounded-full bg-white/10 px-2 py-0.5 text-xs text-gray-400 capitalize">{item.playerType}</span>
+                  : <span class="text-xs text-gray-600">—</span>
+                }
+              </td>
+            </tr>
           ))}
-        </div>
-      )}
+          <tr id="product-table-empty" class="hidden">
+            <td colspan="6" class="px-4 py-12 text-center text-sm text-gray-500">
+              No products match your search.
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </div>
-  ))}
+
+  </div>
 
   <!-- Slide-over panels (one per item, pre-rendered) -->
   {items.map((item) => (
@@ -338,7 +441,7 @@ const grouped = Object.fromEntries(
             name="category"
             class="w-full rounded-md bg-gray-900 border border-white/10 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-white/20"
           >
-            {(['head', 'shaft', 'mesh', 'strings', 'service', 'upsell'] as const).map((cat) => (
+            {(['head', 'shaft', 'mesh', 'strings', 'dye', 'service', 'upsell'] as const).map((cat) => (
               <option value={cat} selected={item.category === cat}>{CATEGORY_LABELS[cat]}</option>
             ))}
           </select>
@@ -350,6 +453,7 @@ const grouped = Object.fromEntries(
             class="w-full rounded-md bg-gray-900 border border-white/10 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-white/20"
           >
             <option value="" selected={!item.playerType}>— None —</option>
+            <option value="all" selected={item.playerType === 'all'}>All</option>
             <option value="boys" selected={item.playerType === 'boys'}>Boys</option>
             <option value="girls" selected={item.playerType === 'girls'}>Girls</option>
             <option value="goalies" selected={item.playerType === 'goalies'}>Goalies</option>
@@ -395,129 +499,11 @@ const grouped = Object.fromEntries(
     </dialog>
   ))}
 
-  <!-- New Product Dialog -->
-  <dialog
-    id="dialog-new"
-    class="rounded-xl bg-gray-800 ring-1 ring-white/10 shadow-2xl p-0 w-full max-w-lg backdrop:bg-black/60"
-  >
-    <form method="dialog" class="sr-only"><button>close</button></form>
-    <div class="px-6 py-4 border-b border-white/10 flex items-center justify-between">
-      <h3 class="text-base font-semibold text-white">New Product</h3>
-      <button
-        type="button"
-        onclick="document.getElementById('dialog-new').close()"
-        class="rounded-md p-1.5 text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
-      >
-        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-          <path d="M6 18 18 6M6 6l12 12" stroke-linecap="round" stroke-linejoin="round" />
-        </svg>
-      </button>
-    </div>
-    <div class="px-6 py-4 space-y-4 overflow-y-auto max-h-[70vh]">
-      <div>
-        <label class="block text-xs font-medium text-gray-400 mb-1">Name <span class="text-red-400">*</span></label>
-        <input
-          id="new-name"
-          type="text"
-          placeholder="e.g. Signature Mesh"
-          class="w-full rounded-md bg-gray-900 border border-white/10 px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-white/20"
-        />
-      </div>
-      <div>
-        <label class="block text-xs font-medium text-gray-400 mb-1">Description</label>
-        <textarea
-          id="new-description"
-          rows={3}
-          placeholder="Optional product description"
-          class="w-full rounded-md bg-gray-900 border border-white/10 px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-white/20 resize-none"
-        ></textarea>
-      </div>
-      <div>
-        <label class="block text-xs font-medium text-gray-400 mb-1">Price (USD) <span class="text-red-400">*</span></label>
-        <div class="relative">
-          <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">$</span>
-          <input
-            id="new-price"
-            type="number"
-            min="0"
-            step="0.01"
-            placeholder="0.00"
-            class="w-full rounded-md bg-gray-900 border border-white/10 pl-7 pr-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-white/20"
-          />
-        </div>
-        <p class="text-xs text-gray-600 mt-1">Enter price in dollars. Will be converted to cents.</p>
-      </div>
-      <div>
-        <label class="block text-xs font-medium text-gray-400 mb-1">Category <span class="text-red-400">*</span></label>
-        <select
-          id="new-category"
-          class="w-full rounded-md bg-gray-900 border border-white/10 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-white/20"
-        >
-          {(['head', 'shaft', 'mesh', 'strings', 'service', 'upsell'] as const).map((cat) => (
-            <option value={cat}>{CATEGORY_LABELS[cat]}</option>
-          ))}
-        </select>
-      </div>
-      <div>
-        <label class="block text-xs font-medium text-gray-400 mb-1">Player Type</label>
-        <select
-          id="new-playerType"
-          class="w-full rounded-md bg-gray-900 border border-white/10 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-white/20"
-        >
-          <option value="">— None —</option>
-          <option value="boys">Boys</option>
-          <option value="girls">Girls</option>
-          <option value="goalies">Goalies</option>
-        </select>
-      </div>
-      <div>
-        <label class="block text-xs font-medium text-gray-400 mb-1">Initial Stock <span class="text-red-400">*</span></label>
-        <input
-          id="new-stock"
-          type="number"
-          min="0"
-          value="0"
-          class="w-full rounded-md bg-gray-900 border border-white/10 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-white/20"
-        />
-      </div>
-      <div class="flex gap-6">
-        <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
-          <input id="new-showInShop" type="checkbox" class="rounded border-white/20 bg-gray-900 text-indigo-600" />
-          Show in Shop
-        </label>
-        <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
-          <input id="new-showInBuilder" type="checkbox" class="rounded border-white/20 bg-gray-900 text-indigo-600" />
-          Show in Builder
-        </label>
-      </div>
-    </div>
-    <div class="px-6 py-4 border-t border-white/10 flex justify-end gap-3">
-      <button
-        type="button"
-        onclick="document.getElementById('dialog-new').close()"
-        class="rounded-md bg-white/5 px-4 py-2 text-sm font-medium text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
-      >
-        Cancel
-      </button>
-      <button
-        type="button"
-        id="new-submit-btn"
-        onclick="submitNewProduct(this)"
-        class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 transition-colors disabled:opacity-50"
-      >
-        Create Product
-      </button>
-    </div>
-  </dialog>
 </AdminLayout>
 
 <script>
   // --- Tab switching ---
   function switchTab(cat: string) {
-    document.querySelectorAll('[data-cat-section]').forEach((el) => el.classList.add('hidden'));
-    const section = document.querySelector(`[data-cat-section="${cat}"]`);
-    if (section) section.classList.remove('hidden');
-
     document.querySelectorAll('[data-tab]').forEach((el) => {
       const isActive = el.getAttribute('data-tab') === cat;
       el.className = isActive
@@ -532,6 +518,9 @@ const grouped = Object.fromEntries(
       url.searchParams.set('cat', cat);
     }
     history.replaceState(null, '', url.toString());
+
+    productState.activeCategory = cat;
+    applyProducts();
   }
 
   // --- Slide-over ---
@@ -647,58 +636,195 @@ const grouped = Object.fromEntries(
     }
   }
 
-  // --- New product ---
-  async function submitNewProduct(btn: HTMLButtonElement) {
-    const nameEl = document.getElementById('new-name') as HTMLInputElement | null;
-    const descEl = document.getElementById('new-description') as HTMLTextAreaElement | null;
-    const priceEl = document.getElementById('new-price') as HTMLInputElement | null;
-    const catEl = document.getElementById('new-category') as HTMLSelectElement | null;
-    const playerTypeEl = document.getElementById('new-playerType') as HTMLSelectElement | null;
-    const stockEl = document.getElementById('new-stock') as HTMLInputElement | null;
-    const shopEl = document.getElementById('new-showInShop') as HTMLInputElement | null;
-    const builderEl = document.getElementById('new-showInBuilder') as HTMLInputElement | null;
+  // --- Inline stock editing ---
+  document.getElementById('product-tbody')?.addEventListener('click', async (e) => {
+    const target = e.target as HTMLElement;
+    const btn = target.closest<HTMLElement>('[data-stock-dec],[data-stock-inc],[data-stock-display]');
+    if (!btn) return;
+    e.stopPropagation();
+    const id = btn.dataset.id!;
+    if (btn.hasAttribute('data-stock-dec')) await adjustStock(id, -1);
+    else if (btn.hasAttribute('data-stock-inc')) await adjustStock(id, 1);
+    else if (btn.hasAttribute('data-stock-display')) showStockInput(id);
+  });
 
-    const name = nameEl?.value.trim() ?? '';
-    const price = parseFloat(priceEl?.value ?? '0');
-    const category = catEl?.value ?? 'service';
-    const stock = parseInt(stockEl?.value ?? '0', 10);
+  document.getElementById('product-tbody')?.addEventListener('keydown', async (e) => {
+    const input = e.target as HTMLElement;
+    if (!input.matches('[data-stock-input]')) return;
+    if (e.key === 'Enter') { e.preventDefault(); await commitStockInput(input as HTMLInputElement); }
+    if (e.key === 'Escape') cancelStockInput(input as HTMLInputElement);
+  });
 
-    if (!name) { alert('Name is required.'); nameEl?.focus(); return; }
-    if (isNaN(price) || price <= 0) { alert('Please enter a valid price.'); priceEl?.focus(); return; }
+  document.getElementById('product-tbody')?.addEventListener('focusout', async (e) => {
+    const input = e.target as HTMLElement;
+    if (input.matches('[data-stock-input]') && !(input as HTMLInputElement).classList.contains('hidden')) {
+      await commitStockInput(input as HTMLInputElement);
+    }
+  });
 
-    btn.disabled = true;
-    const original = btn.textContent ?? '';
-    btn.textContent = 'Creating…';
-
+  async function adjustStock(id: string, delta: number): Promise<void> {
+    const display = document.querySelector<HTMLElement>(`[data-stock-display][data-id="${id}"]`);
+    if (!display) return;
+    const current = parseInt(display.textContent?.trim() ?? '0', 10);
+    const newVal = Math.max(0, current + delta);
+    display.textContent = String(newVal);
+    setStockColor(display, newVal);
+    // Also update data-stock on the row for sort
+    const row = document.querySelector<HTMLElement>(`tr.product-row[data-product-id="${id}"]`);
+    if (row) row.dataset.stock = String(newVal);
     try {
-      const res = await fetch('/api/admin/inventory/create', {
+      await fetch('/api/admin/inventory/stock', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name,
-          description: descEl?.value.trim() || undefined,
-          unitAmount: Math.round(price * 100),
-          category,
-          playerType: playerTypeEl?.value || undefined,
-          stock,
-          showInShop: shopEl?.checked ?? false,
-          showInBuilder: builderEl?.checked ?? false,
-        }),
+        body: JSON.stringify({ inventoryId: id, adjustment: delta }),
       });
-
-      const data = await res.json() as { success?: boolean; error?: string };
-      if (!res.ok) throw new Error(data.error ?? 'Create failed');
-
-      const dialog = document.getElementById('dialog-new') as HTMLDialogElement | null;
-      dialog?.close();
-      location.reload();
-    } catch (err) {
-      console.error(err);
-      btn.disabled = false;
-      btn.textContent = original;
-      alert('Create failed: ' + (err instanceof Error ? err.message : 'Unknown error'));
+    } catch {
+      display.textContent = String(current);
+      setStockColor(display, current);
+      if (row) row.dataset.stock = String(current);
     }
   }
+
+  function showStockInput(id: string): void {
+    const display = document.querySelector<HTMLElement>(`[data-stock-display][data-id="${id}"]`);
+    const input = document.querySelector<HTMLInputElement>(`[data-stock-input][data-id="${id}"]`);
+    if (!display || !input) return;
+    input.value = display.textContent?.trim() ?? '0';
+    display.classList.add('hidden');
+    input.classList.remove('hidden');
+    input.focus();
+    input.select();
+  }
+
+  async function commitStockInput(input: HTMLInputElement): Promise<void> {
+    const id = input.dataset.id!;
+    const cell = document.querySelector<HTMLElement>(`[data-stock-cell][data-id="${id}"]`);
+    const display = document.querySelector<HTMLElement>(`[data-stock-display][data-id="${id}"]`);
+    if (!display) return;
+    const newVal = Math.max(0, parseInt(input.value, 10) || 0);
+    input.classList.add('hidden');
+    display.textContent = String(newVal);
+    display.classList.remove('hidden');
+    setStockColor(display, newVal);
+    const row = document.querySelector<HTMLElement>(`tr.product-row[data-product-id="${id}"]`);
+    if (row) row.dataset.stock = String(newVal);
+    await fetch('/api/admin/inventory/update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        inventoryId: id,
+        stripeProductId: cell?.dataset.stripeId ?? '',
+        stock: newVal,
+      }),
+    });
+  }
+
+  function cancelStockInput(input: HTMLInputElement): void {
+    const id = input.dataset.id!;
+    const display = document.querySelector<HTMLElement>(`[data-stock-display][data-id="${id}"]`);
+    if (!display) return;
+    input.classList.add('hidden');
+    display.classList.remove('hidden');
+  }
+
+  function setStockColor(el: HTMLElement, stock: number): void {
+    el.classList.toggle('text-red-400', stock <= 0);
+    el.classList.toggle('font-medium', stock <= 0);
+    el.classList.toggle('text-gray-300', stock > 0);
+  }
+
+  // --- Product sort / search / category filter ---
+  type ProductSortCol = 'name' | 'price' | 'stock';
+  type ProductSortDir = 'asc' | 'desc';
+
+  const productState = {
+    search: '',
+    sortCol: 'name' as ProductSortCol,
+    sortDir: 'asc' as ProductSortDir,
+    activeCategory:
+      (document.querySelector('[data-tab].bg-gray-800') as HTMLElement | null)
+        ?.dataset.tab ?? 'all',
+  };
+
+  function applyProducts(): void {
+    const q = productState.search.toLowerCase();
+    const cat = productState.activeCategory;
+    const col = productState.sortCol;
+    const dir = productState.sortDir;
+
+    function passes(el: HTMLElement): boolean {
+      if (q && !(el.dataset.name ?? '').includes(q)) return false;
+      if (cat !== 'all' && el.dataset.category !== cat) return false;
+      return true;
+    }
+
+    function compare(a: HTMLElement, b: HTMLElement): number {
+      let v = 0;
+      if (col === 'name') {
+        v = (a.dataset.name ?? '').localeCompare(b.dataset.name ?? '');
+      } else if (col === 'price') {
+        v = parseInt(a.dataset.price ?? '0', 10) - parseInt(b.dataset.price ?? '0', 10);
+      } else {
+        v = parseInt(a.dataset.stock ?? '0', 10) - parseInt(b.dataset.stock ?? '0', 10);
+      }
+      return dir === 'asc' ? v : -v;
+    }
+
+    const tbody = document.getElementById('product-tbody');
+    const mobileList = document.getElementById('product-mobile-list');
+    const rows = Array.from(document.querySelectorAll<HTMLElement>('#product-tbody tr.product-row'));
+    const cards = Array.from(document.querySelectorAll<HTMLElement>('.product-mobile-card'));
+
+    (
+      [
+        { items: rows, container: tbody, emptyId: 'product-table-empty' },
+        { items: cards, container: mobileList, emptyId: 'product-mobile-empty' },
+      ] as { items: HTMLElement[]; container: HTMLElement | null; emptyId: string }[]
+    ).forEach(({ items, container, emptyId }) => {
+      if (!container) return;
+      const visible: HTMLElement[] = [];
+      const hidden: HTMLElement[] = [];
+      items.forEach(el => (passes(el) ? visible : hidden).push(el));
+      hidden.forEach(el => el.classList.add('hidden'));
+      visible.sort(compare).forEach(el => { el.classList.remove('hidden'); container.append(el); });
+      document.getElementById(emptyId)?.classList.toggle('hidden', visible.length > 0);
+    });
+
+    // Update sort icon arrows
+    document.querySelectorAll<HTMLElement>('.sort-icon').forEach(icon => {
+      const forCol = icon.dataset.for;
+      if (forCol === col) {
+        icon.textContent = dir === 'asc' ? '↑' : '↓';
+        icon.classList.remove('text-gray-600');
+        icon.classList.add('text-white');
+      } else {
+        icon.textContent = '↕';
+        icon.classList.remove('text-white');
+        icon.classList.add('text-gray-600');
+      }
+    });
+  }
+
+  document.getElementById('product-search')?.addEventListener('input', (e) => {
+    productState.search = (e.target as HTMLInputElement).value.trim();
+    applyProducts();
+  });
+
+  document.querySelectorAll<HTMLElement>('[data-sort-col]').forEach(th => {
+    th.addEventListener('click', () => {
+      const col = th.dataset.sortCol as ProductSortCol;
+      if (productState.sortCol === col) {
+        productState.sortDir = productState.sortDir === 'asc' ? 'desc' : 'asc';
+      } else {
+        productState.sortCol = col;
+        productState.sortDir = 'asc';
+      }
+      applyProducts();
+    });
+  });
+
+  // Initialize on load: set sort icons + show empty state if no items
+  applyProducts();
 
   // Expose to inline handlers
   const w = window;
@@ -707,7 +833,6 @@ const grouped = Object.fromEntries(
   w.syncFromStripe = syncFromStripe;
   w.submitEdit = submitEdit;
   w.confirmArchive = confirmArchive;
-  w.submitNewProduct = submitNewProduct;
   w.switchTab = switchTab;
 </script>
 
